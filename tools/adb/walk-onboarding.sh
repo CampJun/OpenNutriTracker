@@ -13,7 +13,7 @@
 #   DEVICE=<serial> bash tools/adb/walk-onboarding.sh
 #
 # Dummy data filled: female / default birthday / 170 cm / 65 kg /
-# Active / Maintain weight.
+# 25 % body fat / Maintain weight.
 # ---------------------------------------------------------------------------
 
 __WO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -55,9 +55,9 @@ walk_onboarding() {
   press_back; sleep 0.5  # dismiss keyboard so NEXT button is reachable
   tap_id 'onboarding-button' || return 1; sleep 1
 
-  echo "  page 3 — activity level"
-  wait_for_id 'onboarding-activity-active' 10 || return 1
-  tap_id 'onboarding-activity-active' || return 1; sleep 0.4
+  echo "  page 3 — body fat"
+  wait_for_id 'onboarding-body-fat-input' 10 || return 1
+  enter_text_at 'onboarding-body-fat-input' '25' || return 1; sleep 0.4
   tap_id 'onboarding-button'          || return 1; sleep 1
 
   echo "  page 4 — weight goal"

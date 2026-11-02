@@ -80,6 +80,8 @@ void main() {
         gender: UserGenderDBO.female,
         goal: UserWeightGoalDBO.maintainWeight,
         pal: UserPALDBO.sedentary,
+        bodyFatPercent: 20,
+        bodyFatReadingWeightKg: 70,
       ),
     );
     await configBox.put('ConfigKey', ConfigDBO.empty());
@@ -179,6 +181,38 @@ void main() {
     expect(intakeBox.isEmpty, isTrue);
     expect(trackedDayBox.isEmpty, isTrue);
   });
+
+  test(
+    'skips a target profile with no body fat reading, writing nothing',
+    () async {
+      await userBox.put(
+        'UserKey',
+        UserDBO(
+          birthday: DateTime(1990, 6, 15),
+          heightCM: 170,
+          weightKG: 70,
+          gender: UserGenderDBO.female,
+          goal: UserWeightGoalDBO.maintainWeight,
+          pal: UserPALDBO.sedentary,
+        ),
+      );
+
+      await sut.copyToProfiles(
+        [buildIntake()],
+        [
+          ProfileEntity(
+            id: 'target',
+            name: 'Target',
+            createdAt: DateTime(2026, 1, 1),
+            boxSuffix: 'target',
+          ),
+        ],
+      );
+
+      expect(intakeBox.isEmpty, isTrue);
+      expect(trackedDayBox.isEmpty, isTrue);
+    },
+  );
 
   // Regression coverage: the scoped box-set opened for a copy used to never
   // be closed, leaking it for the rest of the app's lifetime. The usecase

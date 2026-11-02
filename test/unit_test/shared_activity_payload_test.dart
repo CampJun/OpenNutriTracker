@@ -43,6 +43,22 @@ void main() {
       expect(decoded.items.last.duration, 45);
     });
 
+    test('leaves out the Daily Steps row', () {
+      final payload = SharedActivityPayload.fromUserActivityList([
+        _testActivity(code: '01010', duration: 30),
+        UserActivityEntity(
+          'ua-steps',
+          0,
+          300,
+          DateTime(2026, 4, 27),
+          PhysicalActivityEntity.steps,
+          steps: 10000,
+        ),
+      ]);
+
+      expect(payload.items.map((item) => item.code), ['01010']);
+    });
+
     test('garbage input throws SharedActivityParseException', () {
       expect(
         () => SharedActivityPayload.fromJsonString('not-anything'),

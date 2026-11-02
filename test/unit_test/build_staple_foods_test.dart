@@ -380,8 +380,64 @@ void main() {
           ],
         ),
       );
-      expect(s.map((e) => e.label), ['1 cup, chopped', '0.5 stalk']);
+      expect(s.map((e) => e.label), ['1 cup, chopped', '1 stalk']);
       expect(s.first.gramWeight, 91);
+    });
+
+    test('divides a fraction of a measure up to one', () {
+      final s = servingsOfFood(
+        usdaFood(
+          fdcId: 1,
+          name: 'Abiyuch, raw',
+          category: 'Fruits and Fruit Juices',
+          portions: [
+            srPortion('cup', 114, amount: 0.5),
+            srPortion('package (10 oz)', 94, amount: 0.33),
+          ],
+        ),
+      );
+      expect(s.map((e) => e.label), ['1 cup', '1 package (10 oz)']);
+      // 0.33 is USDA's third: three of them, not 3.03.
+      expect(s.map((e) => e.gramWeight), [228, 282]);
+    });
+
+    test('divides several of a measure down to one, in the singular', () {
+      final s = servingsOfFood(
+        usdaFood(
+          fdcId: 1,
+          name: 'Asparagus, raw',
+          portions: [
+            srPortion('spears', 58, amount: 4),
+            srPortion('leaves', 2.5, amount: 5),
+            srPortion('tomatoes', 300, amount: 2),
+            srPortion('slices (6 per 6-oz pkg.)', 57, amount: 2),
+            srPortion('tbsp', 10, amount: 2),
+            srPortion('pea pods', 34, amount: 10),
+          ],
+        ),
+      );
+      expect(s.map((e) => e.label), [
+        '1 spear',
+        '1 leaf',
+        '1 tomato',
+        '1 slice (6 per 6-oz pkg.)',
+        '1 tbsp',
+        '1 pea pod',
+      ]);
+      expect(s.map((e) => e.gramWeight), [14.5, 0.5, 150, 28.5, 5, 3.4]);
+    });
+
+    test('keeps a weight its own label says is one of the measure', () {
+      // USDA's "5 package (5 oz)" at 142 g: 142 g is 5 oz, one package.
+      final s = servingsOfFood(
+        usdaFood(
+          fdcId: 1,
+          name: 'Spinach, frozen, unprepared',
+          portions: [srPortion('package (5 oz)', 142, amount: 5)],
+        ),
+      );
+      expect(s.single.label, '1 package (5 oz)');
+      expect(s.single.gramWeight, 142);
     });
 
     test('labels a Foundation measure from its unit and modifier', () {
@@ -413,11 +469,15 @@ void main() {
               'piece, cooked, excluding refuse (yield from 1 lb raw meat with refuse)',
               300,
             ),
+            srPortion('NLEA serving', 85),
+            srPortion('serving (3 oz)', 85),
+            srPortion('oz, boneless', 28.35),
             srPortion('patty (4 per lb)', 113),
+            srPortion('package (2 lb)', 907),
           ],
         ),
       );
-      expect(s.map((e) => e.label), ['1 patty (4 per lb)']);
+      expect(s.map((e) => e.label), ['1 patty (4 per lb)', '1 package (2 lb)']);
     });
 
     test('keeps fluid ounces, which are a volume', () {

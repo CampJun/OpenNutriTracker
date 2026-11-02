@@ -20,8 +20,8 @@ void main() {
         duration,
       );
 
-      // 8 * 80 * (60 / 60)
-      int expectedKcalBurned = 640;
+      // Net of resting burn: (8 - 1) * 80 * (60 / 60)
+      int expectedKcalBurned = 560;
 
       expect(resultKcalBurned.toInt(), expectedKcalBurned);
     },
@@ -42,8 +42,8 @@ void main() {
         duration,
       );
 
-      // 4 * 75 * (30 / 60)
-      int expectedKcalBurned = 150;
+      // Net of resting burn: (4 - 1) * 75 * (30 / 60)
+      int expectedKcalBurned = 112;
 
       expect(resultKcalBurned.toInt(), expectedKcalBurned);
     },

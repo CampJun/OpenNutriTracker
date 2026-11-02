@@ -15,9 +15,9 @@ import 'package:opennutritracker/core/data/repository/water_intake_repository.da
 import 'package:opennutritracker/core/data/repository/weight_log_repository.dart';
 import 'package:opennutritracker/core/domain/entity/profile_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_activity_entity.dart';
+import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_gender_entity.dart';
-import 'package:opennutritracker/core/domain/entity/user_pal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_weight_goal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/weight_log_entity.dart';
 import 'package:opennutritracker/core/domain/usecase/add_config_usecase.dart';
@@ -356,8 +356,8 @@ UserEntity _demoUser(DateTime startOfToday) => UserEntity(
   weightKG: 87,
   gender: UserGenderEntity.male,
   goal: UserWeightGoalEntity.loseWeight,
-  pal: UserPALEntity.active,
   weeklyWeightGoalKg: -0.4,
+  bodyFatReading: const BodyFatReadingEntity(bodyFatPercent: 24, weightKg: 87),
 );
 
 /// The one hand-picked Unsplash portrait used for the demo profile's

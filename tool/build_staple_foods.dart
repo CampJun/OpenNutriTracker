@@ -443,22 +443,92 @@ List<StapleServingDTO> servingsOf(Map<String, dynamic> food) {
   final servings = <StapleServingDTO>[];
   final seen = <String>{};
   for (final p in portions) {
-    final grams = (p['gramWeight'] as num?)?.toDouble();
-    if (grams == null || grams <= 0) continue;
-    final label = servingLabel(p);
-    if (label == null || !seen.add(label)) continue;
-    servings.add(StapleServingDTO(label: label, gramWeight: _round(grams)!));
+    final serving = householdServing(p);
+    if (serving == null || !seen.add(serving.label)) continue;
+    servings.add(serving);
   }
   return servings;
 }
 
-/// "1 cup, chopped" from a USDA portion, or null when it is not a Household
-/// Serving.
+/// One of [portion]'s measure, or null when it is not a Household Serving.
+///
+/// USDA states some measures as several or a fraction — "0.5 cup" at
+/// 114 g, "4 spears" at 58 g. The app counts a serving in ones and shows
+/// its label without the count, so those would read "cup (114 g)" for half
+/// a cup. Each is divided down to one: "1 cup" at 228 g, "1 spear" at
+/// 14.5 g.
+StapleServingDTO? householdServing(Map<String, dynamic> portion) {
+  final grams = (portion['gramWeight'] as num?)?.toDouble();
+  if (grams == null || grams <= 0) return null;
+  final measure = servingMeasure(portion);
+  if (measure == null) return null;
+  final stated = _statedWeight(measure);
+  // "5 package (5 oz)" at 142 g: the weight is already one package's.
+  final amount = stated != null && (grams - stated).abs() <= stated * 0.1
+      ? 1.0
+      : _amountOf(portion);
+  if (amount <= 0) return null;
+  return StapleServingDTO(
+    label: '1 ${amount > 1 ? singularMeasure(measure) : measure}',
+    gramWeight: _round(grams / amount)!,
+  );
+}
+
+/// The weight a measure states for one of itself — "package (10 oz)" —
+/// in grams, or null when it states none.
+double? _statedWeight(String measure) {
+  final match = RegExp(
+    r'\((\d+(?:\.\d+)?)\s*(oz|lb)\)',
+  ).firstMatch(measure.toLowerCase());
+  if (match == null) return null;
+  final value = double.parse(match[1]!);
+  return match[2] == 'oz' ? value * 28.3495 : value * 453.592;
+}
+
+/// [portion]'s count, with USDA's two-decimal thirds read as thirds: one
+/// of "0.33 package (10 oz)" is 3 × its weight, not 3.03 ×.
+double _amountOf(Map<String, dynamic> portion) {
+  final amount =
+      ((portion['amount'] as num?) ?? (portion['value'] as num?) ?? 1)
+          .toDouble();
+  final thirds = (amount * 3).roundToDouble();
+  return (amount * 3 - thirds).abs() < 0.02 ? thirds / 3 : amount;
+}
+
+/// [measure] with the noun it counts made singular — "slices (6 per pkg.)"
+/// to "slice (6 per pkg.)", "pea pods" to "pea pod" — for a count divided
+/// down to one. The noun is the last word before any comma or parenthesis.
+String singularMeasure(String measure) {
+  final headEnd = measure.indexOf(RegExp(r'[,(]'));
+  final head = headEnd < 0 ? measure : measure.substring(0, headEnd);
+  final match = RegExp(r'[A-Za-z]+(?=\s*$)').firstMatch(head);
+  if (match == null) return measure;
+  final word = match[0]!;
+  final lower = word.toLowerCase();
+  final String singular;
+  if (_irregularPlurals[lower] case final irregular?) {
+    singular = irregular;
+  } else if (lower.endsWith('ies')) {
+    singular = '${word.substring(0, word.length - 3)}y';
+  } else if (lower.endsWith('oes')) {
+    singular = word.substring(0, word.length - 2);
+  } else if (lower.endsWith('s') && !lower.endsWith('ss')) {
+    singular = word.substring(0, word.length - 1);
+  } else {
+    singular = word;
+  }
+  return measure.replaceRange(match.start, match.end, singular);
+}
+
+const _irregularPlurals = {'leaves': 'leaf', 'halves': 'half'};
+
+/// "cup, chopped" from a USDA portion, without its count, or null when it
+/// is not a Household Serving.
 ///
 /// Foundation Foods name the unit in `measureUnit` and add a `modifier`;
 /// SR Legacy leaves the unit "undetermined" and writes the whole measure
 /// into `modifier` ("cup, chopped", "large").
-String? servingLabel(Map<String, dynamic> portion) {
+String? servingMeasure(Map<String, dynamic> portion) {
   final unit = ((portion['measureUnit'] as Map?)?['name'] as String? ?? '')
       .trim();
   final modifier = (portion['modifier'] as String? ?? '').trim();
@@ -471,27 +541,27 @@ String? servingLabel(Map<String, dynamic> portion) {
   } else if (modifier.isNotEmpty) {
     measure = modifier;
   } else if (description.isNotEmpty) {
-    return _keepMeasure(description) ? description : null;
+    // Unused by the 2026-10 Foundation and 2018-04 SR Legacy files. The
+    // description may carry its own count, which [householdServing] adds.
+    measure = description.replaceFirst(RegExp(r'^\d+(?:\.\d+)?\s+'), '');
   } else {
     return null;
   }
-  if (!_keepMeasure(measure)) return null;
-
-  final amount = (portion['amount'] as num?) ?? (portion['value'] as num?) ?? 1;
-  return '${_formatAmount(amount)} $measure';
+  return _keepMeasure(measure) ? measure : null;
 }
 
 bool _keepMeasure(String measure) {
   final lower = measure.toLowerCase();
   if (_notHouseholdMeasures.contains(lower)) return false;
+  if (_notHouseholdHead.hasMatch(lower)) return false;
   if (lower.contains('yield') || preparedWords.hasMatch(lower)) return false;
   return true;
 }
 
-String _formatAmount(num amount) {
-  if (amount == amount.roundToDouble()) return amount.toInt().toString();
-  return double.parse(amount.toStringAsFixed(2)).toString();
-}
+/// A label serving or a weight with something after it — "NLEA serving",
+/// "serving (3 oz)", "oz, boneless", "lb (2 pieces)". "fl oz" is a volume
+/// and "package (2 lb)" a thing someone takes, so both stay.
+final _notHouseholdHead = RegExp(r'^(?:nlea\s+)?(?:serving|oz|lb|racc)\b');
 
 // ---------------------------------------------------------------------------
 // Review report

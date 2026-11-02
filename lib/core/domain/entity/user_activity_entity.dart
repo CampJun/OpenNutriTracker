@@ -27,6 +27,9 @@ class UserActivityEntity extends Equatable {
   /// multiplier. See `UserActivityDBO.sourceReportedKcal`.
   final double? sourceReportedKcal;
 
+  /// The step count of a Daily Steps row, null for every other activity.
+  final int? steps;
+
   const UserActivityEntity(
     this.id,
     this.duration,
@@ -36,6 +39,7 @@ class UserActivityEntity extends Equatable {
     this.userKcal,
     this.externalId,
     this.sourceReportedKcal,
+    this.steps,
   });
 
   factory UserActivityEntity.fromUserActivityDBO(UserActivityDBO activityDBO) {
@@ -50,6 +54,7 @@ class UserActivityEntity extends Equatable {
       userKcal: activityDBO.userKcal,
       externalId: activityDBO.externalId,
       sourceReportedKcal: activityDBO.sourceReportedKcal,
+      steps: activityDBO.steps,
     );
   }
 
@@ -60,14 +65,15 @@ class UserActivityEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        duration,
-        burnedKcal,
-        date,
-        userKcal,
-        externalId,
-        sourceReportedKcal,
-      ];
+    id,
+    duration,
+    burnedKcal,
+    date,
+    userKcal,
+    externalId,
+    sourceReportedKcal,
+    steps,
+  ];
 
   static IconData getIconData() => Icons.directions_run_outlined;
 }

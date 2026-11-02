@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -28,28 +29,42 @@ class StapleFoodDataSource {
   static const minScore = 0.3;
 
   final Future<String> Function() _loadAsset;
-  Future<List<StapleFoodDTO>>? _foods;
+  Future<List<_IndexedFood>>? _index;
 
   /// [loadAsset] is for tests; the app reads the bundled asset.
   StapleFoodDataSource({Future<String> Function()? loadAsset})
     : _loadAsset = loadAsset ?? (() => rootBundle.loadString(assetPath));
 
   /// Every Staple Food, parsed on first use.
-  Future<List<StapleFoodDTO>> allFoods() => _foods ??= _parse();
+  Future<List<StapleFoodDTO>> allFoods() async => [
+    for (final entry in await _indexed()) entry.food,
+  ];
 
-  Future<List<StapleFoodDTO>> _parse() async {
-    final json = jsonDecode(await _loadAsset()) as Map<String, dynamic>;
-    final foods = [
-      for (final food in json['foods'] as List)
-        StapleFoodDTO.fromJson((food as Map).cast<String, dynamic>()),
-    ];
+  /// The foods with what every search reads of their names, worked out
+  /// once. A failed load is not kept, so the next search tries again
+  /// rather than failing for the rest of the session.
+  Future<List<_IndexedFood>> _indexed() =>
+      _index ??= _load().catchError((Object error, StackTrace stackTrace) {
+        _index = null;
+        return Future<List<_IndexedFood>>.error(error, stackTrace);
+      });
+
+  Future<List<_IndexedFood>> _load() async {
+    final text = await _loadAsset();
+    // Off the UI isolate: decoding and indexing ~1,600 foods is long
+    // enough to drop frames on the first keystroke of a search.
+    final (index, foundation, srLegacy) = await _decodeElsewhere(text);
     _log.fine(
-      'Loaded ${foods.length} Staple Foods '
-      '(Foundation ${json['foundationRelease']}, '
-      'SR Legacy ${json['srLegacyRelease']})',
+      'Loaded ${index.length} Staple Foods '
+      '(Foundation $foundation, SR Legacy $srLegacy)',
     );
-    return foods;
+    return index;
   }
+
+  /// Static, so the closure [Isolate.run] sends holds only [text].
+  static Future<(List<_IndexedFood>, Object?, Object?)> _decodeElsewhere(
+    String text,
+  ) => Isolate.run(() => _parseAndIndex(text));
 
   /// The Staple Foods matching [query], best first.
   ///
@@ -65,21 +80,21 @@ class StapleFoodDataSource {
   Future<List<StapleFoodDTO>> search(String query) async {
     final queryTokens = tokenize(query);
     if (queryTokens.isEmpty) return const [];
-    final foods = await allFoods();
-    final scored =
-        [
-              for (final food in foods)
-                (food: food, score: scoreStapleFood(food.name, queryTokens)),
-            ]
-            .where((e) => e.score >= minScore)
-            .map(
-              (e) => (
-                food: e.food,
-                score: e.score,
-                position: matchPosition(e.food.name, queryTokens),
-              ),
+    final index = await _indexed();
+    final scored = [
+      for (final entry in index)
+        if (scoreTokens(
+              entry.titleTokens,
+              queryTokens,
+              qualifierTokens: entry.qualifierTokens,
             )
-            .toList();
+            case final score when score >= minScore)
+          (
+            entry: entry,
+            score: score,
+            position: _matchPosition(entry.nameTokens, queryTokens),
+          ),
+    ];
     mergeSort(
       scored,
       compare: (a, b) {
@@ -87,14 +102,14 @@ class StapleFoodDataSource {
         if (byScore != 0) return byScore;
         final byPosition = a.position.compareTo(b.position);
         if (byPosition != 0) return byPosition;
-        final byLength = rankingLength(
-          a.food.name,
-        ).compareTo(rankingLength(b.food.name));
+        final byLength = a.entry.nameLength.compareTo(b.entry.nameLength);
         if (byLength != 0) return byLength;
-        return _foundationFirst(a.food).compareTo(_foundationFirst(b.food));
+        return _foundationFirst(
+          a.entry.food,
+        ).compareTo(_foundationFirst(b.entry.food));
       },
     );
-    return [for (final e in scored.take(maxResults)) e.food];
+    return [for (final e in scored.take(maxResults)) e.entry.food];
   }
 
   static int _foundationFirst(StapleFoodDTO food) =>
@@ -103,17 +118,24 @@ class StapleFoodDataSource {
 
 /// [name]'s title plus the qualifiers [queryTokens] name, scored against
 /// them — the rule the resolver and the backend cut share (`scoreText`).
-double scoreStapleFood(String name, Set<String> queryTokens) => scoreText(
-  deriveTitle(name),
+double scoreStapleFood(String name, Set<String> queryTokens) => scoreTokens(
+  tokenize(deriveTitle(name)),
   queryTokens,
-  qualifiers: deriveQualifiers(name),
+  qualifierTokens: _qualifierTokens(name),
 );
+
+Set<String>? _qualifierTokens(String name) {
+  final qualifiers = deriveQualifiers(name);
+  return qualifiers == null ? null : tokenize(qualifiers);
+}
 
 /// How far into [name] the [queryTokens] are found: the sum, over the query
 /// tokens, of the position of the first name token each agrees with
 /// ([_missing] when it agrees with none). Lower is earlier.
-int matchPosition(String name, Set<String> queryTokens) {
-  final nameTokens = tokenize(name).toList();
+int matchPosition(String name, Set<String> queryTokens) =>
+    _matchPosition(tokenize(name).toList(), queryTokens);
+
+int _matchPosition(List<String> nameTokens, Set<String> queryTokens) {
   var total = 0;
   for (final query in queryTokens) {
     final index = nameTokens.indexWhere(
@@ -145,3 +167,35 @@ int rankingLength(String name) =>
 /// The token agreement that counts as the same word for [matchPosition] —
 /// `egg`/`eggs` yes, `apple`/`apricot` no.
 const _agreement = 0.7;
+
+/// A Staple Food with the tokens and length [StapleFoodDataSource.search]
+/// reads on every query.
+class _IndexedFood {
+  final StapleFoodDTO food;
+  final Set<String> titleTokens;
+  final Set<String>? qualifierTokens;
+  final List<String> nameTokens;
+  final int nameLength;
+
+  _IndexedFood(this.food)
+    : titleTokens = tokenize(deriveTitle(food.name)),
+      qualifierTokens = _qualifierTokens(food.name),
+      nameTokens = tokenize(food.name).toList(),
+      nameLength = rankingLength(food.name);
+}
+
+/// The asset's foods, indexed, with the two USDA releases it was built
+/// from. Top level, so [Isolate.run] sends nothing but the text.
+(List<_IndexedFood>, Object?, Object?) _parseAndIndex(String text) {
+  final json = jsonDecode(text) as Map<String, dynamic>;
+  return (
+    [
+      for (final food in json['foods'] as List)
+        _IndexedFood(
+          StapleFoodDTO.fromJson((food as Map).cast<String, dynamic>()),
+        ),
+    ],
+    json['foundationRelease'],
+    json['srLegacyRelease'],
+  );
+}

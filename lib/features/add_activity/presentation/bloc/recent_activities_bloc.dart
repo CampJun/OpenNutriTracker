@@ -24,8 +24,11 @@ class RecentActivitiesBloc
             await _getUserActivityUsecase.getRecentUserActivity();
         emit(
           RecentActivitiesLoadedState(
+            // Daily Steps are set from their own dialog, never logged
+            // through the activity flow, so they are not offered here.
             recentActivities: recentUserActivities
                 .map((activity) => activity.physicalActivityEntity)
+                .where((activity) => !activity.isSteps)
                 .toList(),
           ),
         );

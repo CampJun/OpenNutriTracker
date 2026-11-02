@@ -2,43 +2,36 @@ import 'package:equatable/equatable.dart';
 import 'package:opennutritracker/core/domain/entity/calories_profile_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_gender_entity.dart';
-import 'package:opennutritracker/core/domain/entity/user_pal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_weight_goal_entity.dart';
 import 'package:opennutritracker/core/utils/calc/calorie_goal_calc.dart';
 import 'package:opennutritracker/core/utils/calc/macro_calc.dart';
-import 'package:opennutritracker/core/utils/calc/pal_calc.dart';
 import 'package:opennutritracker/core/utils/calc/tdee_calc.dart';
 
 /// Snapshot of every variable and intermediate result that goes into the
 /// daily kcal goal, for the transparency screen ("How your calorie goal is
 /// calculated").
 ///
-/// All values are computed through the same [CalorieGoalCalc] / [TDEECalc] /
-/// [PalCalc] code paths the home screen uses, so [totalKcalGoal] here is
+/// All values are computed through the same [CalorieGoalCalc] / [TDEECalc]
+/// code paths the home screen uses, so [totalKcalGoal] here is
 /// always identical to the goal the rest of the app shows — the breakdown
 /// can't drift from the real calculation.
 class KcalGoalBreakdownEntity extends Equatable {
   // Inputs, copied so the breakdown is a stable snapshot.
-  final int age;
   final double heightCM;
   final double weightKG;
   final UserGenderEntity gender;
   final CaloriesProfileEntity? caloriesProfile;
-  final UserPALEntity palCategory;
   final UserWeightGoalEntity goal;
   final double? weeklyWeightGoalKg;
   final double? targetWeightKg;
   final bool taperEnabled;
 
-  // Step 1 — TDEE. The male / female sides are null when that reference
-  // formula does not participate in the user's TDEE (e.g. [paMaleFormula]
-  // is null for a binary female profile). For the non-binary averaged
-  // profile both sides are set and [tdeeKcal] is their midpoint.
-  final double palValue;
-  final double? paMaleFormula;
-  final double? paFemaleFormula;
-  final double? tdeeMaleReferenceKcal;
-  final double? tdeeFemaleReferenceKcal;
+  // Step 1 — TDEE: lean body mass from the body fat reading, Katch-McArdle
+  // BMR from that, then x [TDEECalc.sedentaryMultiplier].
+  final double bodyFatPercent;
+  final double bodyFatReadingWeightKg;
+  final double leanBodyMassKg;
+  final double bmrKcal;
   final double tdeeKcal;
 
   // Step 2 — weight-goal adjustment. [baseAdjustmentKcal] is the raw
@@ -71,21 +64,18 @@ class KcalGoalBreakdownEntity extends Equatable {
   final double proteinsGoalGrams;
 
   const KcalGoalBreakdownEntity({
-    required this.age,
     required this.heightCM,
     required this.weightKG,
     required this.gender,
     required this.caloriesProfile,
-    required this.palCategory,
     required this.goal,
     required this.weeklyWeightGoalKg,
     required this.targetWeightKg,
     required this.taperEnabled,
-    required this.palValue,
-    required this.paMaleFormula,
-    required this.paFemaleFormula,
-    required this.tdeeMaleReferenceKcal,
-    required this.tdeeFemaleReferenceKcal,
+    required this.bodyFatPercent,
+    required this.bodyFatReadingWeightKg,
+    required this.leanBodyMassKg,
+    required this.bmrKcal,
     required this.tdeeKcal,
     required this.baseAdjustmentKcal,
     required this.effectiveAdjustmentKcal,
@@ -104,10 +94,6 @@ class KcalGoalBreakdownEntity extends Equatable {
   bool get taperChangedAdjustment =>
       taperEnabled && baseAdjustmentKcal != effectiveAdjustmentKcal;
 
-  /// Whether the averaged non-binary midpoint is in effect.
-  bool get usesAveragedReference =>
-      tdeeMaleReferenceKcal != null && tdeeFemaleReferenceKcal != null;
-
   factory KcalGoalBreakdownEntity.compute({
     required UserEntity user,
     double? userKcalAdjustment,
@@ -116,51 +102,12 @@ class KcalGoalBreakdownEntity extends Equatable {
     double? userFatsGoalPct,
     double? userProteinsGoalPct,
   }) {
-    final palValue = PalCalc.getPALValueFromActivityCategory(user);
-
-    // Resolve which reference formula sides participate, mirroring
-    // TDEECalc.getTDEEKcalIOM2005 exactly.
-    bool usesMaleSide;
-    bool usesFemaleSide;
-    switch (user.gender) {
-      case UserGenderEntity.male:
-        usesMaleSide = true;
-        usesFemaleSide = false;
-        break;
-      case UserGenderEntity.female:
-        usesMaleSide = false;
-        usesFemaleSide = true;
-        break;
-      case UserGenderEntity.nonBinary:
-        switch (user.caloriesProfile ?? CaloriesProfileEntity.averaged) {
-          case CaloriesProfileEntity.averaged:
-            usesMaleSide = true;
-            usesFemaleSide = true;
-            break;
-          case CaloriesProfileEntity.estrogenTypical:
-            usesMaleSide = false;
-            usesFemaleSide = true;
-            break;
-          case CaloriesProfileEntity.testosteroneTypical:
-            usesMaleSide = true;
-            usesFemaleSide = false;
-            break;
-        }
+    final reading = user.bodyFatReading;
+    if (reading == null) {
+      throw StateError('No body fat reading: TDEE cannot be calculated');
     }
-
-    final paMale = usesMaleSide
-        ? PalCalc.getPAValueForFormula(palValue: palValue, isMaleFormula: true)
-        : null;
-    final paFemale = usesFemaleSide
-        ? PalCalc.getPAValueForFormula(palValue: palValue, isMaleFormula: false)
-        : null;
-    final tdeeMale = usesMaleSide
-        ? TDEECalc.iom2005MaleReferenceKcal(user, palValue)
-        : null;
-    final tdeeFemale = usesFemaleSide
-        ? TDEECalc.iom2005FemaleReferenceKcal(user, palValue)
-        : null;
-    final tdee = TDEECalc.getTDEEKcalIOM2005(user);
+    final bmr = TDEECalc.bmrKcalKatchMcArdle(reading.leanBodyMassKg);
+    final tdee = CalorieGoalCalc.getTdee(user);
 
     final baseAdjustment = CalorieGoalCalc.getKcalGoalAdjustment(
       user.goal,
@@ -195,28 +142,26 @@ class KcalGoalBreakdownEntity extends Equatable {
     );
 
     return KcalGoalBreakdownEntity(
-      age: user.age,
       heightCM: user.heightCM,
       weightKG: user.weightKG,
       gender: user.gender,
       caloriesProfile: user.caloriesProfile,
-      palCategory: user.pal,
       goal: user.goal,
       weeklyWeightGoalKg: user.weeklyWeightGoalKg,
       targetWeightKg: user.targetWeightKg,
       taperEnabled: user.caloriesTaperEnabled,
-      palValue: palValue,
-      paMaleFormula: paMale,
-      paFemaleFormula: paFemale,
-      tdeeMaleReferenceKcal: tdeeMale,
-      tdeeFemaleReferenceKcal: tdeeFemale,
+      bodyFatPercent: reading.bodyFatPercent,
+      bodyFatReadingWeightKg: reading.weightKg,
+      leanBodyMassKg: reading.leanBodyMassKg,
+      bmrKcal: bmr,
       tdeeKcal: tdee,
       baseAdjustmentKcal: baseAdjustment,
       effectiveAdjustmentKcal: effectiveAdjustment,
       manualKcalAdjustment: userKcalAdjustment ?? 0,
       activityKcal: totalKcalActivities,
       totalKcalGoal: totalGoal,
-      carbsFractionGoal: userCarbsGoalPct ?? MacroCalc.defaultCarbsPercentageGoal,
+      carbsFractionGoal:
+          userCarbsGoalPct ?? MacroCalc.defaultCarbsPercentageGoal,
       fatsFractionGoal: userFatsGoalPct ?? MacroCalc.defaultFatsPercentageGoal,
       proteinsFractionGoal:
           userProteinsGoalPct ?? MacroCalc.defaultProteinsPercentageGoal,
@@ -228,21 +173,18 @@ class KcalGoalBreakdownEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-    age,
     heightCM,
     weightKG,
     gender,
     caloriesProfile,
-    palCategory,
     goal,
     weeklyWeightGoalKg,
     targetWeightKg,
     taperEnabled,
-    palValue,
-    paMaleFormula,
-    paFemaleFormula,
-    tdeeMaleReferenceKcal,
-    tdeeFemaleReferenceKcal,
+    bodyFatPercent,
+    bodyFatReadingWeightKg,
+    leanBodyMassKg,
+    bmrKcal,
     tdeeKcal,
     baseAdjustmentKcal,
     effectiveAdjustmentKcal,

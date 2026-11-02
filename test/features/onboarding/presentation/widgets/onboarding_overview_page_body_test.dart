@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/domain/entity/kcal_goal_breakdown_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_gender_entity.dart';
-import 'package:opennutritracker/core/domain/entity/user_pal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_weight_goal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/utils/energy_unit_provider.dart';
@@ -24,7 +24,7 @@ void main() {
     weightKG: 80,
     gender: UserGenderEntity.male,
     goal: goal,
-    pal: UserPALEntity.lowActive,
+    bodyFatReading: BodyFatReadingEntity(bodyFatPercent: 20, weightKg: 80),
   );
 
   KcalGoalBreakdownEntity breakdownFor(UserEntity entity) =>
@@ -96,7 +96,7 @@ void main() {
     // Whatever the equations produce, the row must show that number. That is
     // why this reuses KcalGoalBreakdownEntity instead of recomputing.
     expect(
-      find.textContaining(breakdown.totalKcalGoal.toInt().toString()),
+      find.textContaining(breakdown.totalKcalGoal.round().toString()),
       findsWidgets,
     );
   });
