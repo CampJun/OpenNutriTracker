@@ -25,13 +25,14 @@ class UserActivityDBOAdapter extends TypeAdapter<UserActivityDBO> {
       userKcal: (fields[5] as num?)?.toDouble(),
       externalId: fields[6] as String?,
       sourceReportedKcal: (fields[7] as num?)?.toDouble(),
+      steps: (fields[8] as num?)?.toInt(),
     );
   }
 
   @override
   void write(BinaryWriter writer, UserActivityDBO obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class UserActivityDBOAdapter extends TypeAdapter<UserActivityDBO> {
       ..writeByte(6)
       ..write(obj.externalId)
       ..writeByte(7)
-      ..write(obj.sourceReportedKcal);
+      ..write(obj.sourceReportedKcal)
+      ..writeByte(8)
+      ..write(obj.steps);
   }
 
   @override
@@ -77,6 +80,7 @@ UserActivityDBO _$UserActivityDBOFromJson(Map<String, dynamic> json) =>
       userKcal: (json['userKcal'] as num?)?.toDouble(),
       externalId: json['externalId'] as String?,
       sourceReportedKcal: (json['sourceReportedKcal'] as num?)?.toDouble(),
+      steps: (json['steps'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$UserActivityDBOToJson(UserActivityDBO instance) =>
@@ -89,4 +93,5 @@ Map<String, dynamic> _$UserActivityDBOToJson(UserActivityDBO instance) =>
       'userKcal': instance.userKcal,
       'externalId': instance.externalId,
       'sourceReportedKcal': instance.sourceReportedKcal,
+      'steps': instance.steps,
     };

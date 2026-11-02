@@ -1,11 +1,10 @@
 import 'package:opennutritracker/core/domain/entity/app_theme_entity.dart';
+import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/domain/entity/body_weight_unit_entity.dart';
 import 'package:opennutritracker/core/domain/entity/calories_profile_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_gender_entity.dart';
-import 'package:opennutritracker/core/domain/entity/user_pal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_weight_goal_entity.dart';
-import 'package:opennutritracker/features/onboarding/domain/entity/user_activity_selection_entity.dart';
 import 'package:opennutritracker/features/onboarding/domain/entity/user_gender_selection_entity.dart';
 import 'package:opennutritracker/features/onboarding/domain/entity/user_goal_selection_entity.dart';
 
@@ -15,7 +14,10 @@ class UserDataMaskEntity {
   DateTime? birthday;
   double? height;
   double? weight;
-  UserActivitySelectionEntity? activity;
+
+  /// Body fat percentage, 0..100, measured at [weight]. Together they make
+  /// the user's first body fat reading.
+  double? bodyFatPercent;
   UserGoalSelectionEntity? goal;
 
   /// Optional weight the user is working towards. Captured on the same
@@ -63,7 +65,7 @@ class UserDataMaskEntity {
     this.birthday,
     this.height,
     this.weight,
-    this.activity,
+    this.bodyFatPercent,
     this.goal,
     this.targetWeight,
     this.acceptDataCollection = false,
@@ -77,7 +79,7 @@ class UserDataMaskEntity {
         birthday != null &&
         height != null &&
         weight != null &&
-        activity != null &&
+        bodyFatPercent != null &&
         goal != null) {
       return true;
     } else {
@@ -121,33 +123,19 @@ class UserDataMaskEntity {
       case null:
         userGoal = UserWeightGoalEntity.maintainWeight;
     }
-    UserPALEntity userPal;
-    switch (activity) {
-      case UserActivitySelectionEntity.sedentary:
-        userPal = UserPALEntity.sedentary;
-        break;
-      case UserActivitySelectionEntity.lowActive:
-        userPal = UserPALEntity.lowActive;
-        break;
-      case UserActivitySelectionEntity.active:
-        userPal = UserPALEntity.active;
-        break;
-      case UserActivitySelectionEntity.veryActive:
-        userPal = UserPALEntity.veryActive;
-        break;
-      case null:
-        userPal = UserPALEntity.lowActive;
-    }
-
     return UserEntity(
       birthday: userBirthday,
       heightCM: userHeight,
       weightKG: userWeight,
       gender: userGender,
       goal: userGoal,
-      pal: userPal,
-      caloriesProfile:
-          userGender == UserGenderEntity.nonBinary ? caloriesProfile : null,
+      bodyFatReading: BodyFatReadingEntity(
+        bodyFatPercent: bodyFatPercent!,
+        weightKg: userWeight,
+      ),
+      caloriesProfile: userGender == UserGenderEntity.nonBinary
+          ? caloriesProfile
+          : null,
       targetWeightKg: targetWeight,
     );
   }

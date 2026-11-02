@@ -89,6 +89,13 @@ class SendIntakeToProfilesUsecase {
       await _closeScoped(suffix);
       return;
     }
+    // Nor does one without a body fat reading: its TDEE comes from lean
+    // body mass. Checked before anything is written, so a copy is never
+    // left half-done; the profile asks for a reading when next opened.
+    if ((await userRepository.getUserData()).bodyFatReading == null) {
+      await _closeScoped(suffix);
+      return;
+    }
 
     try {
       final intakeRepository = IntakeRepository(IntakeDataSource(scoped));

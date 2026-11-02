@@ -1,5 +1,6 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:opennutritracker/core/domain/entity/user_activity_entity.dart';
 import 'package:opennutritracker/core/presentation/widgets/app_card.dart';
 import 'package:opennutritracker/core/styles/app_palette.dart';
@@ -74,15 +75,29 @@ class ActivityCard extends StatelessWidget {
                     children: [
                       AutoSizeText(
                         activityEntity.physicalActivityEntity.getName(context),
-                        style: textTheme.titleSmall?.copyWith(color: palette.textStrong),
+                        style: textTheme.titleSmall?.copyWith(
+                          color: palette.textStrong,
+                        ),
                         maxLines: 1,
                         minFontSize: 11,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${activityEntity.duration.toInt()} ${S.of(context).minuteShortLabel}',
-                        style: textTheme.bodySmall?.copyWith(color: palette.textMuted),
+                        activityEntity.physicalActivityEntity.isSteps
+                            ? S
+                                  .of(context)
+                                  .dailyStepsCount(
+                                    NumberFormat.decimalPattern(
+                                      Localizations.localeOf(
+                                        context,
+                                      ).toString(),
+                                    ).format(activityEntity.steps ?? 0),
+                                  )
+                            : '${activityEntity.duration.toInt()} ${S.of(context).minuteShortLabel}',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: palette.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -108,7 +123,8 @@ class ActivityCard extends StatelessWidget {
       data: activityEntity,
       onDragStarted: () => onItemDragCallback!.call(true),
       onDragEnd: (_) => onItemDragCallback!.call(false),
-      onDraggableCanceled: (velocity, offset) => onItemDragCallback!.call(false),
+      onDraggableCanceled: (velocity, offset) =>
+          onItemDragCallback!.call(false),
       feedback: Material(
         color: Colors.transparent,
         child: SizedBox(

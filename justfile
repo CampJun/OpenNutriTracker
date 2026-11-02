@@ -16,6 +16,16 @@ staple_foods foundation sr_legacy:
 format *OPTIONS:
   dart format {{OPTIONS}} ./lib/core ./lib/features ./lib/l10n ./test
 
+# Format only the Dart files this branch adds (committed since BASE, or new
+# and untracked). Many existing files predate the formatter's current style,
+# and formatting one rewrites all of it, so edited files are left alone.
+format_new BASE="main":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  files=$( { git diff --name-only --diff-filter=A "$(git merge-base {{BASE}} HEAD)" -- ./lib/core ./lib/features ./lib/l10n ./test; git ls-files --others --exclude-standard -- ./lib/core ./lib/features ./lib/l10n ./test; } | grep '\.dart$' | grep -v '\.g\.dart$' | sort -u || true)
+  if [ -z "$files" ]; then echo "No new Dart files to format."; exit 0; fi
+  echo "$files" | xargs dart format
+
 # Generate localizations from lib/l10n/*.arb into lib/generated/ (gitignored)
 gen_l10n:
   flutter gen-l10n

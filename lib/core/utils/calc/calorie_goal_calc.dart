@@ -21,11 +21,19 @@ class CalorieGoalCalc {
   static double getDailyKcalLeft(
     double totalKcalGoal,
     double totalKcalIntake,
-  ) =>
-      totalKcalGoal - totalKcalIntake;
+  ) => totalKcalGoal - totalKcalIntake;
 
-  static double getTdee(UserEntity userEntity) =>
-      TDEECalc.getTDEEKcalIOM2005(userEntity);
+  /// The user's TDEE. Every path into the app collects a body fat reading
+  /// before a goal is shown (onboarding, or the body fat prompt for older
+  /// users), so a missing one here is a bug, not a state to paper over with
+  /// a made-up number.
+  static double getTdee(UserEntity userEntity) {
+    final tdee = TDEECalc.getTDEEKcal(userEntity);
+    if (tdee == null) {
+      throw StateError('No body fat reading: TDEE cannot be calculated');
+    }
+    return tdee;
+  }
 
   // 1 kg of body fat ≈ 7700 kcal; spread over 7 days → ~1100 kcal/day per kg/week
   static const double _kcalPerKgPerWeekDaily = 1100.0;
@@ -53,8 +61,10 @@ class CalorieGoalCalc {
         totalKcalActivities;
   }
 
-  static double getKcalGoalAdjustment(UserWeightGoalEntity goal,
-      {double? weeklyWeightGoalKg}) {
+  static double getKcalGoalAdjustment(
+    UserWeightGoalEntity goal, {
+    double? weeklyWeightGoalKg,
+  }) {
     if (weeklyWeightGoalKg != null) {
       return weeklyWeightGoalKg * _kcalPerKgPerWeekDaily;
     }
@@ -145,7 +155,8 @@ class CalorieGoalCalc {
     required UserGenderEntity gender,
     CaloriesProfileEntity? caloriesProfile,
   }) {
-    final usesMaleFloor = gender == UserGenderEntity.male ||
+    final usesMaleFloor =
+        gender == UserGenderEntity.male ||
         caloriesProfile == CaloriesProfileEntity.testosteroneTypical;
     return usesMaleFloor
         ? Ranges.minRecommendedDailyKcalMale

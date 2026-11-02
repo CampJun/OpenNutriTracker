@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/data/repository/config_repository.dart';
 import 'package:opennutritracker/core/data/repository/user_activity_repository.dart';
 import 'package:opennutritracker/core/data/repository/user_repository.dart';
@@ -7,7 +8,6 @@ import 'package:opennutritracker/core/domain/entity/config_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_activity_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_gender_entity.dart';
-import 'package:opennutritracker/core/domain/entity/user_pal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_weight_goal_entity.dart';
 import 'package:opennutritracker/core/domain/usecase/get_kcal_goal_breakdown_usecase.dart';
 import 'package:opennutritracker/core/domain/usecase/get_kcal_goal_usecase.dart';
@@ -85,7 +85,7 @@ void main() {
     weightKG: 74.5,
     gender: UserGenderEntity.female,
     goal: UserWeightGoalEntity.loseWeight,
-    pal: UserPALEntity.lowActive,
+    bodyFatReading: BodyFatReadingEntity(bodyFatPercent: 20, weightKg: 74.5),
     weeklyWeightGoalKg: -0.25,
     targetWeightKg: 70.0,
     caloriesTaperEnabled: false,
@@ -137,12 +137,14 @@ void main() {
     );
   });
 
-  test('the kcal goal asks for the logical day, not the wall-clock one',
-      () async {
-    await kcalGoalUsecase.getKcalGoal();
+  test(
+    'the kcal goal asks for the logical day, not the wall-clock one',
+    () async {
+      await kcalGoalUsecase.getKcalGoal();
 
-    expect(activityRepo.requestedDay, logicalToday);
-  });
+      expect(activityRepo.requestedDay, logicalToday);
+    },
+  );
 
   test('the breakdown asks for the same logical day', () async {
     await breakdownUsecase.getBreakdown();
@@ -150,12 +152,14 @@ void main() {
     expect(activityRepo.requestedDay, logicalToday);
   });
 
-  test('activities from before the boundary still count toward the goal',
-      () async {
-    final breakdown = await breakdownUsecase.getBreakdown();
+  test(
+    'activities from before the boundary still count toward the goal',
+    () async {
+      final breakdown = await breakdownUsecase.getBreakdown();
 
-    expect(breakdown.activityKcal, closeTo(312.5 + 87.25, 0.0001));
-  });
+      expect(breakdown.activityKcal, closeTo(312.5 + 87.25, 0.0001));
+    },
+  );
 
   test('goal and breakdown agree on the activity contribution', () async {
     final breakdown = await breakdownUsecase.getBreakdown();
