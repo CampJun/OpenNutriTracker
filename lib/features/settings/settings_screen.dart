@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/core/domain/entity/app_theme_entity.dart';
 import 'package:opennutritracker/core/domain/entity/body_weight_unit_entity.dart';
 import 'package:opennutritracker/core/l10n/shipped_locales.dart';
@@ -542,14 +543,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _SettingsGroup(
                 palette: palette,
                 tiles: [
-                  _SettingsTile(
-                    identifier: 'settings-food-sources',
-                    palette: palette,
-                    icon: Icons.travel_explore_rounded,
-                    title: S.of(context).settingsFoodSourcesLabel,
-                    subtitle: S.of(context).settingsFoodSourcesSubtitle,
-                    onTap: () => _openFoodSourcesScreen(context),
-                  ),
+                  // One bundled source in this fork: nothing to choose
+                  // between (docs/adr/0002).
+                  if (FoodCatalogue.networkSourcesEnabled)
+                    _SettingsTile(
+                      identifier: 'settings-food-sources',
+                      palette: palette,
+                      icon: Icons.travel_explore_rounded,
+                      title: S.of(context).settingsFoodSourcesLabel,
+                      subtitle: S.of(context).settingsFoodSourcesSubtitle,
+                      onTap: () => _openFoodSourcesScreen(context),
+                    ),
                   _SettingsTile(
                     identifier: 'settings-health-sync',
                     palette: palette,

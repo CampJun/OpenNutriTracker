@@ -6,6 +6,7 @@ import 'package:opennutritracker/core/data/dbo/meal_dbo.dart';
 import 'package:opennutritracker/core/domain/entity/recipe_entity.dart';
 import 'package:opennutritracker/core/domain/usecase/get_config_usecase.dart';
 import 'package:opennutritracker/core/domain/usecase/get_intake_usecase.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/features/add_meal/data/repository/products_repository.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
 import 'package:opennutritracker/features/meal_detail/util/hydrate_off_meal.dart';
@@ -93,6 +94,18 @@ class SearchProductsUseCase {
     bool skipRemote = false,
     bool forResolution = false,
   }) async {
+    // This fork's Food tab is the bundled Staple Foods (docs/adr/0002):
+    // on the device, so it runs on every keystroke — [skipRemote] is about
+    // sparing the network — and its results are not written to the search
+    // cache, which exists to make network results available offline.
+    if (!FoodCatalogue.networkSourcesEnabled) {
+      final local = await _safeRemoteCall(
+        'Staple Foods',
+        () => _productsRepository.getStapleFoodsByString(searchString),
+      );
+      return _buildResult(searchString, local.meals,
+          remoteFailed: local.failed, cacheSource: MealSourceEntity.fdc);
+    }
     if (skipRemote) {
       return _buildResult(searchString, const [],
           remoteSkipped: true, cacheSource: MealSourceEntity.fdc);
@@ -233,16 +246,21 @@ class SearchProductsUseCase {
     final freshByKey = {
       for (final meal in remoteResults) _dedupKey(meal): meal,
     };
-    final fromCache = _cachedOffMealDataSource
-        .getAllByMostRecentlyTouched()
-        .map(MealEntity.fromMealDBO)
-        .where((meal) => meal.source == cacheSource)
-        .where((meal) =>
-            meal.backendSource == null ||
-            config.isFoodSourceEnabled(meal.backendSource!))
-        .where((meal) => _mealMatchesSearch(meal, normalizedSearchString))
-        .map((meal) => _freshest(meal, freshByKey))
-        .toList();
+    // With the network sources off, the cache holds only what they
+    // returned before — results this fork no longer searches — so it is
+    // not read at all.
+    final fromCache = !FoodCatalogue.networkSourcesEnabled
+        ? <MealEntity>[]
+        : _cachedOffMealDataSource
+            .getAllByMostRecentlyTouched()
+            .map(MealEntity.fromMealDBO)
+            .where((meal) => meal.source == cacheSource)
+            .where((meal) =>
+                meal.backendSource == null ||
+                config.isFoodSourceEnabled(meal.backendSource!))
+            .where((meal) => _mealMatchesSearch(meal, normalizedSearchString))
+            .map((meal) => _freshest(meal, freshByKey))
+            .toList();
 
     // The page in the order its source ranked it, each record as the
     // cached copy above has it — which is the fresh one but for the

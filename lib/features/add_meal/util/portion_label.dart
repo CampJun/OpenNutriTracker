@@ -71,9 +71,13 @@ const maxHouseholdPortionLabel = 16;
 /// opens this up per locale, with no app release, the moment a reviewer
 /// signs one off. The English path is unchanged: that text needs no
 /// translation to be in an English reader's language.
+///
+/// [maxLength] is [maxHouseholdPortionLabel] unless the caller ellipsizes
+/// the label itself; null means no bound.
 String? householdPortionLabel(String? servingSize, {
   required String languageCode,
   bool textIsLocalized = false,
+  int? maxLength = maxHouseholdPortionLabel,
 }) {
   // English, or a translation a human has verified. Both mean the same
   // thing here — the text is in the reader's language — and nothing else
@@ -90,7 +94,7 @@ String? householdPortionLabel(String? servingSize, {
   // more than the word already on the dropdown.
   if (_bareUnit.hasMatch(label)) return null;
   if (!_hasLetter.hasMatch(label)) return null;
-  if (label.length > maxHouseholdPortionLabel) return null;
+  if (maxLength != null && label.length > maxLength) return null;
 
   return label;
 }

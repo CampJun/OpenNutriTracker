@@ -5,17 +5,20 @@ import 'package:opennutritracker/core/styles/dimens.dart';
 import 'package:opennutritracker/core/domain/entity/intake_entity.dart';
 import 'package:opennutritracker/core/domain/entity/intake_type_entity.dart';
 import 'package:opennutritracker/core/domain/usecase/get_intake_usecase.dart';
+import 'package:opennutritracker/core/utils/calc/unit_calc.dart';
 import 'package:opennutritracker/core/utils/locator.dart';
 import 'package:opennutritracker/core/utils/serving_label_localizer.dart';
 import 'package:opennutritracker/core/utils/navigation_options.dart';
 import 'package:opennutritracker/core/utils/navigation_predicates.dart';
 import 'package:opennutritracker/features/add_meal/presentation/log_tray.dart';
+import 'package:opennutritracker/features/add_meal/util/portion_label.dart';
 import 'package:opennutritracker/features/add_meal/util/portion_unit.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
 import 'package:opennutritracker/features/diary/presentation/bloc/calendar_day_bloc.dart';
 import 'package:opennutritracker/features/diary/presentation/bloc/diary_bloc.dart';
 import 'package:opennutritracker/features/home/presentation/bloc/home_bloc.dart';
 import 'package:opennutritracker/features/meal_detail/presentation/bloc/meal_detail_bloc.dart';
+import 'package:opennutritracker/features/meal_detail/util/meal_quantity_converter.dart';
 import 'package:opennutritracker/features/meal_detail/util/quick_serving_option.dart';
 import 'package:opennutritracker/generated/l10n.dart';
 
@@ -116,6 +119,37 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
     widget.onQuantityOrUnitChanged(quantityText, option.unit);
   }
 
+  /// The quantity to show when the unit changes to [newUnit] across a
+  /// Household Serving, or null to keep what the user typed.
+  ///
+  /// Into a serving it starts at one: "100" grams is not "100" cups. Out of
+  /// one it keeps the amount: "1 cup (91 g)" becomes 91 g, or its weight in
+  /// ounces — not 1 g.
+  String? _quantityForPortionSwitch(String newUnit) {
+    if (widget.product.portions.isEmpty) return null;
+    final fromPortion = isPortionUnit(widget.selectedUnit);
+    final toPortion = isPortionUnit(newUnit);
+    if (toPortion && !fromPortion) return '1';
+    if (!fromPortion || toPortion) return null;
+    final quantity = double.tryParse(
+      widget.quantityTextController.text.replaceAll(',', '.'),
+    );
+    if (quantity == null) return null;
+    final base = convertQuantityToBaseUnit(
+      quantity,
+      widget.selectedUnit,
+      widget.product,
+    );
+    final converted = switch (UnitDropdownItem.g.fromString(newUnit)) {
+      UnitDropdownItem.oz => UnitCalc.gToOz(base),
+      UnitDropdownItem.flOz => UnitCalc.mlToFlOz(base),
+      UnitDropdownItem.serving => null,
+      _ => base,
+    };
+    if (converted == null) return null;
+    return _formatQuantity(double.parse(converted.toStringAsFixed(1)));
+  }
+
   String _formatQuantity(double value) {
     if (value == value.roundToDouble()) {
       return value.toInt().toString();
@@ -203,9 +237,16 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
                                 labelText: S.of(context).unitLabel,
                               ),
                               items: <DropdownMenuItem<String>>[
+                                // A food with Household Servings offers
+                                // each, scaled by its own weight; they
+                                // replace the single serving, whose unit
+                                // is the first of them.
+                                if (widget.product.portions.isNotEmpty)
+                                  ..._getPortionDropdownItems(context)
                                 // #629: a serving the app cannot scale
                                 // is a no-op dressed as a unit.
-                                if (widget.product.scalableServingQuantity !=
+                                else if (widget.product
+                                        .scalableServingQuantity !=
                                     null)
                                   _getServingDropdownItem(context),
                                 if (widget.product.isSolid ||
@@ -219,6 +260,19 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
                                 ..._getOtherDropdownItems(context),
                               ],
                               onChanged: (value) {
+                                final quantityText = value == null
+                                    ? null
+                                    : _quantityForPortionSwitch(value);
+                                if (quantityText != null) {
+                                  // Detached, as in _onQuickServingSelected,
+                                  // so the write does not emit the old unit.
+                                  widget.quantityTextController
+                                      .removeListener(_onQuantityChanged);
+                                  widget.quantityTextController.text =
+                                      quantityText;
+                                  widget.quantityTextController
+                                      .addListener(_onQuantityChanged);
+                                }
                                 widget.onQuantityOrUnitChanged(
                                   widget.quantityTextController.text,
                                   value,
@@ -506,6 +560,40 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
       child: Text(servingText, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
+
+  /// One entry per Household Serving — "1 cup, chopped (91 g)" — keyed by
+  /// [portionUnit], which `convertQuantityToBaseUnit` scales by that
+  /// serving's weight.
+  List<DropdownMenuItem<String>> _getPortionDropdownItems(
+    BuildContext context,
+  ) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final portions = widget.product.portions;
+    return [
+      for (final (i, portion) in portions.indexed)
+        DropdownMenuItem(
+          value: portionUnit(i),
+          child: Text(
+            '${householdPortionLabel(
+                  portion.label,
+                  languageCode: languageCode,
+                  textIsLocalized: portion.localized,
+                  // Unbounded: the item ellipsizes, and the bound would
+                  // turn "spear, extra large" and its siblings into rows
+                  // that differ only by weight.
+                  maxLength: null,
+                ) ?? S.of(context).servingLabel} '
+            '(${_formatGrams(portion.gramWeight)} g)',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+    ];
+  }
+
+  static String _formatGrams(double grams) => grams == grams.roundToDouble()
+      ? grams.toInt().toString()
+      : grams.toStringAsFixed(1);
 
   List<DropdownMenuItem<String>> _getSolidUnitDropdownItems(
     BuildContext context,

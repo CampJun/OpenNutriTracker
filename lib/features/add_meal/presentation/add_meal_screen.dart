@@ -36,6 +36,7 @@ import 'package:opennutritracker/features/home/presentation/bloc/home_bloc.dart'
 import 'package:opennutritracker/features/meal_detail/meal_detail_screen.dart';
 import 'package:opennutritracker/features/meal_detail/presentation/bloc/meal_detail_bloc.dart';
 import 'package:opennutritracker/features/meal_detail/util/hydrate_off_meal.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/features/scanner/scanner_screen.dart';
 import 'package:opennutritracker/features/scanner/util/barcode_check_digit.dart';
 import 'package:opennutritracker/generated/l10n.dart';
@@ -223,7 +224,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                         ),
                         const SizedBox(height: Dimens.spacing12),
                         AddFoodMethodTiles(
-                          onBarcodePressed: _onBarcodeIconPressed,
+                          onBarcodePressed: _scanBarcodeAction,
                           onSnapMealPressed: () =>
                               _openBulkAdd(startWithPhoto: true),
                           onDescribePressed: () =>
@@ -317,7 +318,9 @@ class _AddMealScreenState extends State<AddMealScreen> {
     final source = _resolveSource(trimmed);
     if (source != _source) setState(() => _source = source);
     // A scannable barcode jumps straight to the scanner (product sources only).
-    if (_searchesProducts(source) && isValidBarcodeCheckDigit(trimmed)) {
+    if (FoodCatalogue.barcodeScannerEnabled &&
+        _searchesProducts(source) &&
+        isValidBarcodeCheckDigit(trimmed)) {
       Navigator.of(context).pushNamed(
         NavigationOptions.scannerRoute,
         arguments: ScannerScreenArguments(
@@ -417,7 +420,9 @@ class _AddMealScreenState extends State<AddMealScreen> {
               ),
             ),
             chip(_SearchSource.all, S.of(context).allItemsLabel),
-            chip(_SearchSource.products, S.of(context).searchProductsPage),
+            // Open Food Facts is switched off in this fork (docs/adr/0002).
+            if (FoodCatalogue.networkSourcesEnabled)
+              chip(_SearchSource.products, S.of(context).searchProductsPage),
             chip(_SearchSource.food, S.of(context).searchFoodPage),
           ],
         ),
@@ -563,7 +568,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                               children: [
                                 PartialResultsNotice(onRetry: retryFailed),
                                 NoResultsWidget(
-                                  onScanBarcode: _onBarcodeIconPressed,
+                                  onScanBarcode: _scanBarcodeAction,
                                   onCreateCustomFood: () =>
                                       _onCustomAddButtonPressed(imperial),
                                 ),
@@ -572,7 +577,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                           );
                         }
                         return NoResultsWidget(
-                          onScanBarcode: _onBarcodeIconPressed,
+                          onScanBarcode: _scanBarcodeAction,
                           onCreateCustomFood: () =>
                               _onCustomAddButtonPressed(imperial),
                         );
@@ -625,7 +630,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                       child: _productsPending(state, query)
                           ? _pendingSpinner
                           : NoResultsWidget(
-                              onScanBarcode: _onBarcodeIconPressed,
+                              onScanBarcode: _scanBarcodeAction,
                               onCreateCustomFood: () =>
                                   _onCustomAddButtonPressed(
                                     state.usesImperialUnits,
@@ -683,7 +688,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                       child: _foodPending(state, query)
                           ? _pendingSpinner
                           : NoResultsWidget(
-                              onScanBarcode: _onBarcodeIconPressed,
+                              onScanBarcode: _scanBarcodeAction,
                               onCreateCustomFood: () =>
                                   _onCustomAddButtonPressed(
                                     state.usesImperialUnits,
@@ -762,7 +767,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
                 );
               }
               return NoResultsWidget(
-                onScanBarcode: _onBarcodeIconPressed,
+                onScanBarcode: _scanBarcodeAction,
                 onCreateCustomFood: () =>
                     _onCustomAddButtonPressed(state.usesImperialUnits),
                 // All skips queries below minQueryLength, so only offer it
@@ -819,7 +824,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
             );
           }
           return NoResultsWidget(
-            onScanBarcode: _onBarcodeIconPressed,
+            onScanBarcode: _scanBarcodeAction,
             onCreateCustomFood: () =>
                 _onCustomAddButtonPressed(state.usesImperialUnits),
           );
@@ -834,6 +839,11 @@ class _AddMealScreenState extends State<AddMealScreen> {
       },
     );
   }
+
+  /// The barcode action, or null while the scanner is switched off —
+  /// widgets given null leave the action out.
+  VoidCallback? get _scanBarcodeAction =>
+      FoodCatalogue.barcodeScannerEnabled ? _onBarcodeIconPressed : null;
 
   void _onBarcodeIconPressed() {
     Navigator.of(context).pushNamed(

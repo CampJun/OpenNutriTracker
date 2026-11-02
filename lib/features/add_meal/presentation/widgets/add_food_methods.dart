@@ -12,7 +12,9 @@ import 'package:opennutritracker/generated/l10n.dart';
 /// two taps deep and unlabelled. Laid out side by side under the search
 /// field, each one names itself, and the two that a model reads say so.
 class AddFoodMethodTiles extends StatelessWidget {
-  final VoidCallback onBarcodePressed;
+  /// Null hides the barcode tile (the scanner is switched off in this fork,
+  /// see `FoodCatalogue.barcodeScannerEnabled`).
+  final VoidCallback? onBarcodePressed;
   final VoidCallback onSnapMealPressed;
   final VoidCallback onDescribePressed;
 
@@ -34,24 +36,27 @@ class AddFoodMethodTiles extends StatelessWidget {
         : AppPalette.light;
     final scheme = Theme.of(context).colorScheme;
     final s = S.of(context);
+    final onBarcode = onBarcodePressed;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Semantics(
-            identifier: 'add-meal-method-barcode',
-            container: true,
-            child: _MethodTile(
-              icon: CustomIcons.barcode_scan,
-              label: s.customMealBarcodeLabel,
-              background: palette.surface,
-              foreground: palette.textStrong,
-              border: palette.border,
-              onPressed: onBarcodePressed,
+        if (onBarcode != null) ...[
+          Expanded(
+            child: Semantics(
+              identifier: 'add-meal-method-barcode',
+              container: true,
+              child: _MethodTile(
+                icon: CustomIcons.barcode_scan,
+                label: s.customMealBarcodeLabel,
+                background: palette.surface,
+                foreground: palette.textStrong,
+                border: palette.border,
+                onPressed: onBarcode,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: Dimens.spacing8),
+          const SizedBox(width: Dimens.spacing8),
+        ],
         Expanded(
           child: Semantics(
             identifier: 'add-meal-method-photo',

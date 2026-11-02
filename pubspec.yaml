@@ -121,6 +121,8 @@ flutter:
   uses-material-design: true
 
   assets:
+    # Staple Foods (docs/adr/0002), built by tool/build_staple_foods.dart.
+    - assets/staple_foods.json
     - assets/icon/ont_logo_square.svg
     - assets/icon/ont_splash_rings.svg
     - assets/icon/ont_splash_spoon.svg

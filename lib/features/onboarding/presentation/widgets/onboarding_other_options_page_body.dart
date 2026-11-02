@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/core/domain/entity/app_theme_entity.dart';
 import 'package:opennutritracker/core/presentation/widgets/section_group.dart';
 import 'package:opennutritracker/core/presentation/ai_assist_summary.dart';
@@ -310,10 +311,13 @@ class _OnboardingOtherOptionsPageBodyState
               ],
             ),
             const SizedBox(height: Dimens.spacing24),
-            SectionHeader(label: s.settingsFoodSourcesLabel),
-            const SizedBox(height: Dimens.spacing12),
-            SectionGroup(tiles: [_buildFoodSourcesTile(context)]),
-            const SizedBox(height: Dimens.spacing24),
+            // One bundled source in this fork (docs/adr/0002).
+            if (FoodCatalogue.networkSourcesEnabled) ...[
+              SectionHeader(label: s.settingsFoodSourcesLabel),
+              const SizedBox(height: Dimens.spacing12),
+              SectionGroup(tiles: [_buildFoodSourcesTile(context)]),
+              const SizedBox(height: Dimens.spacing24),
+            ],
             SectionHeader(label: s.settingsNotificationsLabel),
             const SizedBox(height: Dimens.spacing12),
             SectionGroup(

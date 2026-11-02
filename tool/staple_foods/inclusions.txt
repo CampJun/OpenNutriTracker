@@ -1,0 +1,21 @@
+# Staple Food inclusions — read by tool/build_staple_foods.dart.
+#
+# Staples whose USDA names fail the converter's name rules: no "raw" or
+# "dry" in an SR Legacy name, or a word like "prepared" that here means
+# "made with" rather than "cooked". A match overrides those two rules only —
+# brand names, dropped categories, missing kcal and exclusions.txt still
+# apply. Same syntax as exclusions.txt.
+
+^Honey
+^Sugars, granulated
+^Sugars, brown
+^Sugars, powdered
+^Syrups, maple
+^Molasses
+^Tofu, firm, prepared with calcium sulfate
+^Tofu, soft, prepared with calcium sulfate
+^Tofu, extra firm, prepared with nigari
+^Peanut butter, smooth style, without salt
+^Peanut butter, chunk style, without salt
+^Oats
+^Cornstarch

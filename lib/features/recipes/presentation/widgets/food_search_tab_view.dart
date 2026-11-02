@@ -8,6 +8,7 @@ import 'package:opennutritracker/core/presentation/widgets/error_dialog.dart';
 import 'package:opennutritracker/core/styles/app_palette.dart';
 import 'package:opennutritracker/core/styles/dimens.dart';
 import 'package:opennutritracker/core/utils/locator.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
 import 'package:opennutritracker/features/add_meal/presentation/bloc/food_bloc.dart';
 import 'package:opennutritracker/features/add_meal/presentation/bloc/products_bloc.dart';
@@ -48,13 +49,23 @@ class _FoodSearchTabViewState extends State<FoodSearchTabView>
   late RecentMealBloc _recentMealBloc;
   late TabController _tabController;
 
+  /// The tabs shown, in order. Products (Open Food Facts) is left out while
+  /// the network food sources are off (docs/adr/0002).
+  final _tabs = [
+    if (FoodCatalogue.networkSourcesEnabled) _SearchTab.products,
+    _SearchTab.food,
+    _SearchTab.recent,
+  ];
+
+  _SearchTab get _currentTab => _tabs[_tabController.index];
+
   @override
   void initState() {
     super.initState();
     _productsBloc = locator<ProductsBloc>();
     _foodBloc = locator<FoodBloc>();
     _recentMealBloc = locator<RecentMealBloc>();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(() {
       _onSearchSubmit(_searchStringListener.value);
     });
@@ -76,14 +87,21 @@ class _FoodSearchTabViewState extends State<FoodSearchTabView>
             searchStringListener: _searchStringListener,
             onSearchSubmit: _onSearchSubmit,
             onSearchChanged: _onSearchChanged,
-            onBarcodePressed: widget.onBarcodePressed,
+            onBarcodePressed: FoodCatalogue.barcodeScannerEnabled
+                ? widget.onBarcodePressed
+                : null,
           ),
           const SizedBox(height: 16),
           TabBar(
             tabs: [
-              Tab(text: S.of(context).searchProductsPage),
-              Tab(text: S.of(context).searchFoodPage),
-              Tab(text: S.of(context).recentlyAddedLabel),
+              for (final tab in _tabs)
+                Tab(
+                  text: switch (tab) {
+                    _SearchTab.products => S.of(context).searchProductsPage,
+                    _SearchTab.food => S.of(context).searchFoodPage,
+                    _SearchTab.recent => S.of(context).recentlyAddedLabel,
+                  },
+                ),
             ],
             controller: _tabController,
             indicatorSize: TabBarIndicatorSize.tab,
@@ -93,9 +111,12 @@ class _FoodSearchTabViewState extends State<FoodSearchTabView>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildProductsTab(context),
-                _buildFoodTab(context),
-                _buildRecentTab(context),
+                for (final tab in _tabs)
+                  switch (tab) {
+                    _SearchTab.products => _buildProductsTab(context),
+                    _SearchTab.food => _buildFoodTab(context),
+                    _SearchTab.recent => _buildRecentTab(context),
+                  },
               ],
             ),
           ),
@@ -254,12 +275,12 @@ class _FoodSearchTabViewState extends State<FoodSearchTabView>
   }
 
   void _onSearchSubmit(String inputText) {
-    switch (_tabController.index) {
-      case 0:
+    switch (_currentTab) {
+      case _SearchTab.products:
         _productsBloc.add(LoadProductsEvent(searchString: inputText));
-      case 1:
+      case _SearchTab.food:
         _foodBloc.add(LoadFoodEvent(searchString: inputText));
-      case 2:
+      case _SearchTab.recent:
         _recentMealBloc.add(LoadRecentMealEvent(searchString: inputText));
     }
   }
@@ -267,14 +288,18 @@ class _FoodSearchTabViewState extends State<FoodSearchTabView>
   /// Debounced search-as-you-type for the ingredient picker. Recent-added
   /// (tab 2) stays submit-only — local-history filter, nothing to debounce.
   void _onSearchChanged(String inputText) {
-    switch (_tabController.index) {
-      case 0:
+    switch (_currentTab) {
+      case _SearchTab.products:
         _productsBloc.add(SearchInputChangedEvent(searchString: inputText));
-      case 1:
+      case _SearchTab.food:
         _foodBloc.add(SearchFoodInputChangedEvent(searchString: inputText));
+      case _SearchTab.recent:
+        break;
     }
   }
 }
+
+enum _SearchTab { products, food, recent }
 
 class _PickableMealCard extends StatelessWidget {
   final MealEntity meal;
