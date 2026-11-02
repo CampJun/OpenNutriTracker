@@ -27,6 +27,8 @@ import 'package:opennutritracker/features/home/presentation/bloc/home_bloc.dart'
 import 'package:opennutritracker/features/home/presentation/widgets/dashboard_widget.dart';
 import 'package:opennutritracker/features/home/presentation/widgets/intake_vertical_list.dart';
 import 'package:opennutritracker/features/home/presentation/widgets/fasting_home_chip.dart';
+import 'package:opennutritracker/core/presentation/widgets/daily_steps_dialog.dart';
+import 'package:opennutritracker/features/home/presentation/widgets/quick_steps_widget.dart';
 import 'package:opennutritracker/features/home/presentation/widgets/quick_water_widget.dart';
 import 'package:opennutritracker/core/domain/entity/body_weight_unit_entity.dart';
 import 'package:opennutritracker/features/home/presentation/widgets/quick_weight_widget.dart';
@@ -196,6 +198,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     waterMlToday: waterMlToday,
                     waterGoalMl: waterGoalMl,
                   ),
+                  QuickStepsWidget(todaysActivities: userActivities),
                 ],
               ),
             ),
@@ -442,6 +445,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     BuildContext context,
     UserActivityEntity activityEntity,
   ) async {
+    if (activityEntity.physicalActivityEntity.isSteps) {
+      return showTodaysStepsDialog(context);
+    }
     final newDuration = await showDialog<double>(
       context: context,
       builder: (context) => EditActivityDialog(activityEntity: activityEntity),

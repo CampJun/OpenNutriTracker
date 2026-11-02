@@ -1,4 +1,5 @@
 import 'package:opennutritracker/core/data/dbo/user_dbo.dart';
+import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/domain/entity/calories_profile_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_gender_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_pal_entity.dart';
@@ -10,6 +11,10 @@ class UserEntity {
   double weightKG;
   UserGenderEntity gender;
   UserWeightGoalEntity goal;
+
+  /// Unused since TDEE stopped taking an activity setting; kept so stored
+  /// users and backups still load. See
+  /// `docs/adr/0001-katch-mcardle-replaces-iom-2005.md`.
   UserPALEntity pal;
   double? weeklyWeightGoalKg;
 
@@ -32,17 +37,23 @@ class UserEntity {
   /// the surfacing behind that condition.
   bool caloriesTaperEnabled;
 
+  /// The current body fat reading, which lean body mass and so TDEE come
+  /// from. Null only for users from before it was required; they are asked
+  /// for one before the app shows a calorie goal.
+  BodyFatReadingEntity? bodyFatReading;
+
   UserEntity({
     required this.birthday,
     required this.heightCM,
     required this.weightKG,
     required this.gender,
     required this.goal,
-    required this.pal,
+    this.pal = UserPALEntity.sedentary,
     this.weeklyWeightGoalKg,
     this.caloriesProfile,
     this.targetWeightKg,
     this.caloriesTaperEnabled = false,
+    this.bodyFatReading,
   });
 
   factory UserEntity.fromUserDBO(UserDBO userDBO) {
@@ -59,6 +70,14 @@ class UserEntity {
           : CaloriesProfileEntity.fromDBO(userDBO.caloriesProfile!),
       targetWeightKg: userDBO.targetWeightKg,
       caloriesTaperEnabled: userDBO.caloriesTaperEnabled,
+      bodyFatReading:
+          userDBO.bodyFatPercent == null ||
+              userDBO.bodyFatReadingWeightKg == null
+          ? null
+          : BodyFatReadingEntity(
+              bodyFatPercent: userDBO.bodyFatPercent!,
+              weightKg: userDBO.bodyFatReadingWeightKg!,
+            ),
     );
   }
 

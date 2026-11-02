@@ -80,6 +80,8 @@ void main() {
         gender: UserGenderDBO.female,
         goal: UserWeightGoalDBO.maintainWeight,
         pal: UserPALDBO.sedentary,
+        bodyFatPercent: 20,
+        bodyFatReadingWeightKg: 70,
       ),
     );
     await configBox.put('ConfigKey', ConfigDBO.empty());

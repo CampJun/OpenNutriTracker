@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:opennutritracker/core/data/repository/user_repository.dart';
+import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/domain/usecase/get_config_usecase.dart';
+import 'package:opennutritracker/core/presentation/body_fat_required_screen.dart';
 import 'package:opennutritracker/core/presentation/widgets/add_item_bottom_sheet.dart';
 import 'package:opennutritracker/core/presentation/widgets/demo_mode_banner.dart';
 import 'package:opennutritracker/core/styles/app_palette.dart';
@@ -26,6 +29,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedPageIndex = 0;
   bool _isDemoData = false;
 
+  /// The user while they still need to enter a body fat reading, checked
+  /// before any page is built: every page reads the calorie goal, and there
+  /// is none without a reading. [_userChecked] is false until the check is
+  /// done, so no page builds in the meantime either.
+  UserEntity? _userMissingBodyFat;
+  bool _userChecked = false;
+
   /// Guards against two lifecycle events asking the platform at once. The
   /// platform side clears the flag on read, so a race would not open the
   /// screen twice — but it would spend two channel round trips finding out.
@@ -38,7 +48,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _checkBodyFatReading();
     _loadConfigDrivenUi();
+  }
+
+  Future<void> _checkBodyFatReading() async {
+    final user = await locator<UserRepository>().getUserData();
+    if (!mounted) return;
+    setState(() {
+      _userMissingBodyFat = user.bodyFatReading == null ? user : null;
+      _userChecked = true;
+    });
   }
 
   @override
@@ -118,6 +138,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (!_userChecked) return const Scaffold();
+    if (_userMissingBodyFat != null) {
+      return BodyFatRequiredScreen(
+        user: _userMissingBodyFat!,
+        onSaved: () => setState(() => _userMissingBodyFat = null),
+      );
+    }
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final palette = isDark ? AppPalette.dark : AppPalette.light;
     return Scaffold(

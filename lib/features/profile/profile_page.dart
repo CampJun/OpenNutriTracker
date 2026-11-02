@@ -5,7 +5,7 @@ import 'package:opennutritracker/core/domain/entity/calories_profile_entity.dart
 import 'package:opennutritracker/core/domain/entity/user_bmi_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_gender_entity.dart';
-import 'package:opennutritracker/core/domain/entity/user_pal_entity.dart';
+import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_weight_goal_entity.dart';
 import 'package:opennutritracker/core/domain/entity/weight_log_entity.dart';
 import 'package:opennutritracker/core/domain/usecase/add_weight_log_usecase.dart';
@@ -27,7 +27,7 @@ import 'package:opennutritracker/features/profile/presentation/widgets/set_gende
 import 'package:opennutritracker/features/profile/presentation/widgets/set_goal_dialog.dart';
 import 'package:opennutritracker/features/profile/presentation/widgets/set_height_dialog.dart';
 import 'package:opennutritracker/features/profile/presentation/widgets/set_weekly_weight_goal_dialog.dart';
-import 'package:opennutritracker/features/profile/presentation/widgets/set_pal_category_dialog.dart';
+import 'package:opennutritracker/features/profile/presentation/widgets/set_body_fat_dialog.dart';
 import 'package:opennutritracker/features/profile/presentation/widgets/set_target_weight_dialog.dart';
 import 'package:opennutritracker/features/profile/presentation/widgets/set_weight_dialog.dart';
 import 'package:opennutritracker/features/home/presentation/bloc/home_bloc.dart';
@@ -119,14 +119,6 @@ class _ProfilePageState extends State<ProfilePage> {
           palette: palette,
           tiles: [
             _ProfileTile(
-              identifier: 'profile-activity',
-              palette: palette,
-              icon: Icons.directions_walk_rounded,
-              title: S.of(context).activityLabel,
-              subtitle: user.pal.getName(context),
-              onTap: () => _showSetPALCategoryDialog(context, user),
-            ),
-            _ProfileTile(
               identifier: 'profile-goal',
               palette: palette,
               icon: Icons.flag_rounded,
@@ -140,11 +132,8 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: Icons.trending_down_rounded,
               title: S.of(context).weeklyWeightGoalLabel,
               subtitle: _weeklyGoalSubtitle(context, user, bodyWeightUnit),
-              onTap: () => _showSetWeeklyWeightGoalDialog(
-                context,
-                user,
-                bodyWeightUnit,
-              ),
+              onTap: () =>
+                  _showSetWeeklyWeightGoalDialog(context, user, bodyWeightUnit),
             ),
           ],
         ),
@@ -171,9 +160,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       lbLabel: S.of(context).lbsLabel,
                       stLabel: S.of(context).stLabel,
                     ),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: palette.textMuted,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: palette.textMuted),
                   ),
                   // #119: When the user has set a concrete target weight, surface
                   // the distance to it directly below the current weight. The
@@ -182,15 +171,23 @@ class _ProfilePageState extends State<ProfilePage> {
                   if (user.targetWeightKg != null)
                     Text(
                       _targetWeightSubLabel(context, user, bodyWeightUnit),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: palette.textMuted,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: palette.textMuted),
                     ),
                 ],
               ),
               onTap: () {
                 _showSetWeightDialog(context, user, bodyWeightUnit);
               },
+            ),
+            _ProfileTile(
+              identifier: 'profile-body-fat',
+              palette: palette,
+              icon: Icons.accessibility_new_rounded,
+              title: S.of(context).bodyFatLabel,
+              subtitle: _bodyFatSubtitle(context, user, bodyWeightUnit),
+              onTap: () => _showSetBodyFatDialog(context, user),
             ),
             _ProfileTile(
               identifier: 'profile-target-weight',
@@ -239,8 +236,9 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: Icons.timer_rounded,
               title: S.of(context).profileFastingEntry,
               showChevron: true,
-              onTap: () =>
-                  Navigator.of(context).pushNamed(NavigationOptions.fastingRoute),
+              onTap: () => Navigator.of(
+                context,
+              ).pushNamed(NavigationOptions.fastingRoute),
             ),
           ],
         ),
@@ -264,10 +262,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
         const SizedBox(height: Dimens.spacing24),
-        SectionHeader(
-          label: S.of(context).profileLabel,
-          palette: palette,
-        ),
+        SectionHeader(label: S.of(context).profileLabel, palette: palette),
         const SizedBox(height: Dimens.spacing12),
         SectionGroup(
           palette: palette,
@@ -314,8 +309,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 palette: palette,
                 icon: Icons.tune_rounded,
                 title: S.of(context).caloriesProfileInfoTitle,
-                subtitle: (user.caloriesProfile ?? CaloriesProfileEntity.averaged)
-                    .getName(context),
+                subtitle:
+                    (user.caloriesProfile ?? CaloriesProfileEntity.averaged)
+                        .getName(context),
                 onTap: () {
                   _showCaloriesProfileDialog(context, user);
                 },
@@ -334,8 +330,9 @@ class _ProfilePageState extends State<ProfilePage> {
               icon: Icons.menu_book_rounded,
               title: S.of(context).recipesLabel,
               showChevron: true,
-              onTap: () =>
-                  Navigator.of(context).pushNamed(NavigationOptions.recipesRoute),
+              onTap: () => Navigator.of(
+                context,
+              ).pushNamed(NavigationOptions.recipesRoute),
             ),
           ],
         ),
@@ -369,18 +366,42 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _showSetPALCategoryDialog(
+  Future<void> _showSetBodyFatDialog(
     BuildContext context,
     UserEntity userEntity,
   ) async {
-    final selectedPalCategory = await showDialog<UserPALEntity>(
+    final reading = await showDialog<BodyFatReadingEntity>(
       context: context,
-      builder: (BuildContext context) => const SetPALCategoryDialog(),
+      builder: (BuildContext context) => SetBodyFatDialog(
+        currentWeightKg: userEntity.weightKG,
+        initialPercent: userEntity.bodyFatReading?.bodyFatPercent,
+      ),
     );
-    if (selectedPalCategory != null) {
-      userEntity.pal = selectedPalCategory;
+    if (reading != null) {
+      userEntity.bodyFatReading = reading;
       _profileBloc.updateUser(userEntity);
     }
+  }
+
+  String _bodyFatSubtitle(
+    BuildContext context,
+    UserEntity user,
+    BodyWeightUnit bodyWeightUnit,
+  ) {
+    final reading = user.bodyFatReading;
+    if (reading == null) return '–';
+    return S
+        .of(context)
+        .bodyFatProfileSubtitle(
+          reading.bodyFatPercent.toStringAsFixed(1),
+          formatBodyWeight(
+            reading.leanBodyMassKg,
+            bodyWeightUnit,
+            kgLabel: S.of(context).kgLabel,
+            lbLabel: S.of(context).lbsLabel,
+            stLabel: S.of(context).stLabel,
+          ),
+        );
   }
 
   String _weeklyGoalSubtitle(
@@ -394,11 +415,15 @@ class _ProfilePageState extends State<ProfilePage> {
     switch (bodyWeightUnit) {
       case BodyWeightUnit.kg:
         final sign = goal > 0 ? '+' : '';
-        return S.of(context).weeklyWeightGoalKgPerWeek('$sign${goal.toStringAsFixed(2)}');
+        return S
+            .of(context)
+            .weeklyWeightGoalKgPerWeek('$sign${goal.toStringAsFixed(2)}');
       case BodyWeightUnit.lb:
         final displayLb = goal * 2.20462;
         final sign = displayLb > 0 ? '+' : '';
-        return S.of(context).weeklyWeightGoalLbsPerWeek('$sign${displayLb.toStringAsFixed(2)}');
+        return S
+            .of(context)
+            .weeklyWeightGoalLbsPerWeek('$sign${displayLb.toStringAsFixed(2)}');
       case BodyWeightUnit.st:
         final displaySt = goal * 2.20462 / 14;
         final sign = displaySt > 0 ? '+' : '';
@@ -472,10 +497,8 @@ class _ProfilePageState extends State<ProfilePage> {
   ) async {
     final newKg = await showDialog<double>(
       context: context,
-      builder: (context) => SetWeightDialog(
-        initialKg: userEntity.weightKG,
-        unit: bodyWeightUnit,
-      ),
+      builder: (context) =>
+          SetWeightDialog(initialKg: userEntity.weightKG, unit: bodyWeightUnit),
     );
     if (newKg != null) {
       final now = DateTime.now();
@@ -680,12 +703,17 @@ class _ProfileTile extends StatelessWidget {
     return Semantics(
       identifier: identifier,
       child: ListTile(
-        leading: _IconChip(palette: palette, icon: icon, iconWidget: iconWidget),
+        leading: _IconChip(
+          palette: palette,
+          icon: icon,
+          iconWidget: iconWidget,
+        ),
         title: Text(
           title,
           style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
-        subtitle: subtitleWidget ??
+        subtitle:
+            subtitleWidget ??
             (subtitle != null
                 ? Text(
                     subtitle!,
