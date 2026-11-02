@@ -5,6 +5,7 @@ import 'package:opennutritracker/core/styles/dimens.dart';
 import 'package:opennutritracker/core/domain/entity/intake_entity.dart';
 import 'package:opennutritracker/core/domain/entity/intake_type_entity.dart';
 import 'package:opennutritracker/core/domain/usecase/get_intake_usecase.dart';
+import 'package:opennutritracker/core/utils/calc/unit_calc.dart';
 import 'package:opennutritracker/core/utils/locator.dart';
 import 'package:opennutritracker/core/utils/serving_label_localizer.dart';
 import 'package:opennutritracker/core/utils/navigation_options.dart';
@@ -17,6 +18,7 @@ import 'package:opennutritracker/features/diary/presentation/bloc/calendar_day_b
 import 'package:opennutritracker/features/diary/presentation/bloc/diary_bloc.dart';
 import 'package:opennutritracker/features/home/presentation/bloc/home_bloc.dart';
 import 'package:opennutritracker/features/meal_detail/presentation/bloc/meal_detail_bloc.dart';
+import 'package:opennutritracker/features/meal_detail/util/meal_quantity_converter.dart';
 import 'package:opennutritracker/features/meal_detail/util/quick_serving_option.dart';
 import 'package:opennutritracker/generated/l10n.dart';
 
@@ -115,6 +117,37 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
     widget.quantityTextController.text = quantityText;
     widget.quantityTextController.addListener(_onQuantityChanged);
     widget.onQuantityOrUnitChanged(quantityText, option.unit);
+  }
+
+  /// The quantity to show when the unit changes to [newUnit] across a
+  /// Household Serving, or null to keep what the user typed.
+  ///
+  /// Into a serving it starts at one: "100" grams is not "100" cups. Out of
+  /// one it keeps the amount: "1 cup (91 g)" becomes 91 g, or its weight in
+  /// ounces — not 1 g.
+  String? _quantityForPortionSwitch(String newUnit) {
+    if (widget.product.portions.isEmpty) return null;
+    final fromPortion = isPortionUnit(widget.selectedUnit);
+    final toPortion = isPortionUnit(newUnit);
+    if (toPortion && !fromPortion) return '1';
+    if (!fromPortion || toPortion) return null;
+    final quantity = double.tryParse(
+      widget.quantityTextController.text.replaceAll(',', '.'),
+    );
+    if (quantity == null) return null;
+    final base = convertQuantityToBaseUnit(
+      quantity,
+      widget.selectedUnit,
+      widget.product,
+    );
+    final converted = switch (UnitDropdownItem.g.fromString(newUnit)) {
+      UnitDropdownItem.oz => UnitCalc.gToOz(base),
+      UnitDropdownItem.flOz => UnitCalc.mlToFlOz(base),
+      UnitDropdownItem.serving => null,
+      _ => base,
+    };
+    if (converted == null) return null;
+    return _formatQuantity(double.parse(converted.toStringAsFixed(1)));
   }
 
   String _formatQuantity(double value) {
@@ -227,17 +260,16 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
                                 ..._getOtherDropdownItems(context),
                               ],
                               onChanged: (value) {
-                                // "100" grams is not "100" cups: switching
-                                // to a Household Serving starts at one.
-                                if (value != null &&
-                                    widget.product.portions.isNotEmpty &&
-                                    isPortionUnit(value) &&
-                                    !isPortionUnit(widget.selectedUnit)) {
+                                final quantityText = value == null
+                                    ? null
+                                    : _quantityForPortionSwitch(value);
+                                if (quantityText != null) {
                                   // Detached, as in _onQuickServingSelected,
                                   // so the write does not emit the old unit.
                                   widget.quantityTextController
                                       .removeListener(_onQuantityChanged);
-                                  widget.quantityTextController.text = '1';
+                                  widget.quantityTextController.text =
+                                      quantityText;
                                   widget.quantityTextController
                                       .addListener(_onQuantityChanged);
                                 }
@@ -546,6 +578,10 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
                   portion.label,
                   languageCode: languageCode,
                   textIsLocalized: portion.localized,
+                  // Unbounded: the item ellipsizes, and the bound would
+                  // turn "spear, extra large" and its siblings into rows
+                  // that differ only by weight.
+                  maxLength: null,
                 ) ?? S.of(context).servingLabel} '
             '(${_formatGrams(portion.gramWeight)} g)',
             overflow: TextOverflow.ellipsis,

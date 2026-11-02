@@ -246,19 +246,21 @@ class SearchProductsUseCase {
     final freshByKey = {
       for (final meal in remoteResults) _dedupKey(meal): meal,
     };
-    final fromCache = _cachedOffMealDataSource
-        .getAllByMostRecentlyTouched()
-        .map(MealEntity.fromMealDBO)
-        .where((meal) => meal.source == cacheSource)
-        // With the network sources off, the cache holds only what they
-        // returned before — results this fork no longer searches.
-        .where((meal) => FoodCatalogue.networkSourcesEnabled)
-        .where((meal) =>
-            meal.backendSource == null ||
-            config.isFoodSourceEnabled(meal.backendSource!))
-        .where((meal) => _mealMatchesSearch(meal, normalizedSearchString))
-        .map((meal) => _freshest(meal, freshByKey))
-        .toList();
+    // With the network sources off, the cache holds only what they
+    // returned before — results this fork no longer searches — so it is
+    // not read at all.
+    final fromCache = !FoodCatalogue.networkSourcesEnabled
+        ? <MealEntity>[]
+        : _cachedOffMealDataSource
+            .getAllByMostRecentlyTouched()
+            .map(MealEntity.fromMealDBO)
+            .where((meal) => meal.source == cacheSource)
+            .where((meal) =>
+                meal.backendSource == null ||
+                config.isFoodSourceEnabled(meal.backendSource!))
+            .where((meal) => _mealMatchesSearch(meal, normalizedSearchString))
+            .map((meal) => _freshest(meal, freshByKey))
+            .toList();
 
     // The page in the order its source ranked it, each record as the
     // cached copy above has it — which is the fresh one but for the

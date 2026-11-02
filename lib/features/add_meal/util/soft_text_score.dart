@@ -179,12 +179,24 @@ Set<String> namedQualifiers(
 /// "Apple dried", 1.0, over its siblings' 0.667. For anything else —
 /// an Open Food Facts name, a brand — there are no qualifiers and the
 /// whole text is scored.
-double scoreText(String? text, Set<String> queryTokens, {String? qualifiers}) {
-  final textTokens = tokenize(text);
+double scoreText(String? text, Set<String> queryTokens, {String? qualifiers}) =>
+    scoreTokens(
+      tokenize(text),
+      queryTokens,
+      qualifierTokens: qualifiers == null ? null : tokenize(qualifiers),
+    );
+
+/// [scoreText] on text already tokenized, for a caller that scores the same
+/// records against every query and tokenizes them once.
+double scoreTokens(
+  Set<String> textTokens,
+  Set<String> queryTokens, {
+  Set<String>? qualifierTokens,
+}) {
   if (textTokens.isEmpty || queryTokens.isEmpty) return 0.0;
-  if (qualifiers == null) return _softDice(textTokens, queryTokens);
+  if (qualifierTokens == null) return _softDice(textTokens, queryTokens);
   return _softDice({
     ...textTokens,
-    ...namedQualifiers(textTokens, tokenize(qualifiers), queryTokens),
+    ...namedQualifiers(textTokens, qualifierTokens, queryTokens),
   }, queryTokens);
 }

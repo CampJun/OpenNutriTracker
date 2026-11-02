@@ -197,6 +197,25 @@ void main() {
     });
   });
 
+  test('a failed load is tried again on the next search', () async {
+    var calls = 0;
+    final source = StapleFoodDataSource(
+      loadAsset: () async {
+        calls++;
+        if (calls == 1) throw StateError('asset unavailable');
+        return jsonEncode({
+          'foundationRelease': 'test',
+          'srLegacyRelease': 'test',
+          'foods': [food(1, 'Pineapple, raw').toJson()],
+        });
+      },
+    );
+
+    await expectLater(source.search('pineapple'), throwsStateError);
+    expect(await namesFor(source, 'pineapple'), ['Pineapple, raw']);
+    expect(calls, 2);
+  });
+
   group('the committed asset', () {
     late StapleFoodDataSource source;
     late List<StapleFoodDTO> all;
