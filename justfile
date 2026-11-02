@@ -6,6 +6,12 @@ install:
 build:
   dart run build_runner build
 
+# Rebuild assets/staple_foods.json from the USDA FoodData Central JSON
+# downloads (Foundation Foods, SR Legacy) — see tool/build_staple_foods.dart.
+# Writes a review report to build/staple_foods_review/.
+staple_foods foundation sr_legacy:
+  dart run tool/build_staple_foods.dart {{foundation}} {{sr_legacy}}
+
 # Format dart code (excludes lib/generated/ — gitignored gen-l10n output with its own style)
 format *OPTIONS:
   dart format {{OPTIONS}} ./lib/core ./lib/features ./lib/l10n ./test

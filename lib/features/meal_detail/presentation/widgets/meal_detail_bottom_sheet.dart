@@ -10,6 +10,7 @@ import 'package:opennutritracker/core/utils/serving_label_localizer.dart';
 import 'package:opennutritracker/core/utils/navigation_options.dart';
 import 'package:opennutritracker/core/utils/navigation_predicates.dart';
 import 'package:opennutritracker/features/add_meal/presentation/log_tray.dart';
+import 'package:opennutritracker/features/add_meal/util/portion_label.dart';
 import 'package:opennutritracker/features/add_meal/util/portion_unit.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
 import 'package:opennutritracker/features/diary/presentation/bloc/calendar_day_bloc.dart';
@@ -203,9 +204,16 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
                                 labelText: S.of(context).unitLabel,
                               ),
                               items: <DropdownMenuItem<String>>[
+                                // A food with Household Servings offers
+                                // each, scaled by its own weight; they
+                                // replace the single serving, whose unit
+                                // is the first of them.
+                                if (widget.product.portions.isNotEmpty)
+                                  ..._getPortionDropdownItems(context)
                                 // #629: a serving the app cannot scale
                                 // is a no-op dressed as a unit.
-                                if (widget.product.scalableServingQuantity !=
+                                else if (widget.product
+                                        .scalableServingQuantity !=
                                     null)
                                   _getServingDropdownItem(context),
                                 if (widget.product.isSolid ||
@@ -219,6 +227,20 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
                                 ..._getOtherDropdownItems(context),
                               ],
                               onChanged: (value) {
+                                // "100" grams is not "100" cups: switching
+                                // to a Household Serving starts at one.
+                                if (value != null &&
+                                    widget.product.portions.isNotEmpty &&
+                                    isPortionUnit(value) &&
+                                    !isPortionUnit(widget.selectedUnit)) {
+                                  // Detached, as in _onQuickServingSelected,
+                                  // so the write does not emit the old unit.
+                                  widget.quantityTextController
+                                      .removeListener(_onQuantityChanged);
+                                  widget.quantityTextController.text = '1';
+                                  widget.quantityTextController
+                                      .addListener(_onQuantityChanged);
+                                }
                                 widget.onQuantityOrUnitChanged(
                                   widget.quantityTextController.text,
                                   value,
@@ -506,6 +528,36 @@ class _MealDetailBottomSheetState extends State<MealDetailBottomSheet> {
       child: Text(servingText, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
+
+  /// One entry per Household Serving — "1 cup, chopped (91 g)" — keyed by
+  /// [portionUnit], which `convertQuantityToBaseUnit` scales by that
+  /// serving's weight.
+  List<DropdownMenuItem<String>> _getPortionDropdownItems(
+    BuildContext context,
+  ) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final portions = widget.product.portions;
+    return [
+      for (final (i, portion) in portions.indexed)
+        DropdownMenuItem(
+          value: portionUnit(i),
+          child: Text(
+            '${householdPortionLabel(
+                  portion.label,
+                  languageCode: languageCode,
+                  textIsLocalized: portion.localized,
+                ) ?? S.of(context).servingLabel} '
+            '(${_formatGrams(portion.gramWeight)} g)',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+    ];
+  }
+
+  static String _formatGrams(double grams) => grams == grams.roundToDouble()
+      ? grams.toInt().toString()
+      : grams.toStringAsFixed(1);
 
   List<DropdownMenuItem<String>> _getSolidUnitDropdownItems(
     BuildContext context,

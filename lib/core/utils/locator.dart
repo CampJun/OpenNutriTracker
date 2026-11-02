@@ -100,6 +100,8 @@ import 'package:opennutritracker/features/add_activity/presentation/bloc/activit
 import 'package:opennutritracker/features/add_activity/presentation/bloc/recent_activities_bloc.dart';
 import 'package:opennutritracker/features/add_meal/data/data_sources/off_data_source.dart';
 import 'package:opennutritracker/features/add_meal/data/data_sources/sp_food_data_source.dart';
+import 'package:opennutritracker/features/add_meal/data/data_sources/staple_food_data_source.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/features/add_meal/data/repository/products_repository.dart';
 import 'package:opennutritracker/features/add_meal/domain/usecase/resolve_parsed_meals_usecase.dart';
 import 'package:opennutritracker/features/add_meal/domain/usecase/search_products_usecase.dart';
@@ -201,16 +203,19 @@ Future<void> initLocator() async {
     ),
   );
 
-  // Backend
-  await Supabase.initialize(
-    url: Env.supabaseProjectUrl,
-    publishableKey: Env.supabaseProjectAnonKey,
-    // In debug builds supabase_flutter attaches its own printer to the
-    // shared root log stream (hierarchical logging is off), duplicating
-    // every app log line in a second format. LoggerConfig already prints
-    // everything — including supabase records — once.
-    debug: false,
-  );
+  // Backend — not started while the network food sources are off
+  // (docs/adr/0002): nothing reads it, and it would reach out on launch.
+  if (FoodCatalogue.networkSourcesEnabled) {
+    await Supabase.initialize(
+      url: Env.supabaseProjectUrl,
+      publishableKey: Env.supabaseProjectAnonKey,
+      // In debug builds supabase_flutter attaches its own printer to the
+      // shared root log stream (hierarchical logging is off), duplicating
+      // every app log line in a second format. LoggerConfig already prints
+      // everything — including supabase records — once.
+      debug: false,
+    );
+  }
   locator.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
 
   // Notification service (#312)
@@ -636,7 +641,7 @@ Future<void> initLocator() async {
     () => IntakeRepository(locator()),
   );
   locator.registerLazySingleton<ProductsRepository>(
-    () => ProductsRepository(locator(), locator()),
+    () => ProductsRepository(locator(), locator(), locator()),
   );
   locator.registerLazySingleton<UserActivityRepository>(
     () => UserActivityRepository(locator()),
@@ -691,6 +696,9 @@ Future<void> initLocator() async {
   );
   locator.registerLazySingleton<OFFDataSource>(() => OFFDataSource());
   locator.registerLazySingleton<SpFoodDataSource>(() => SpFoodDataSource());
+  locator.registerLazySingleton<StapleFoodDataSource>(
+    () => StapleFoodDataSource(),
+  );
   locator.registerLazySingleton(() => TrackedDayDataSource(hiveDBProvider));
   locator.registerLazySingleton<WeightLogDataSource>(
     () => WeightLogDataSource(hiveDBProvider),

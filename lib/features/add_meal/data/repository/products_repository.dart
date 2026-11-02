@@ -4,6 +4,9 @@ import 'package:logging/logging.dart';
 import 'package:opennutritracker/core/utils/off_country.dart';
 import 'package:opennutritracker/features/add_meal/data/data_sources/off_data_source.dart';
 import 'package:opennutritracker/features/add_meal/data/data_sources/sp_food_data_source.dart';
+import 'package:opennutritracker/features/add_meal/data/data_sources/staple_food_data_source.dart';
+import 'package:opennutritracker/features/add_meal/data/dto/staple/staple_food_meal_mapper.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_portion_entity.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_nutriments_entity.dart';
@@ -31,10 +34,26 @@ class ProductsRepository {
 
   final OFFDataSource _offDataSource;
   final SpFoodDataSource _spBackendDataSource;
+  final StapleFoodDataSource _stapleFoodDataSource;
 
-  ProductsRepository(this._offDataSource, this._spBackendDataSource);
+  ProductsRepository(
+    this._offDataSource,
+    this._spBackendDataSource, [
+    StapleFoodDataSource? stapleFoodDataSource,
+  ]) : _stapleFoodDataSource = stapleFoodDataSource ?? StapleFoodDataSource();
+
+  /// The bundled Staple Foods matching [searchString], best first
+  /// (docs/adr/0002). Local, so it never fails for want of a network.
+  Future<List<MealEntity>> getStapleFoodsByString(String searchString) async {
+    final foods = await _stapleFoodDataSource.search(searchString);
+    return foods
+        .map((food) => food.toMealEntity())
+        .where(_keepIfConsistent)
+        .toList();
+  }
 
   Future<List<MealEntity>> getOFFProductsByString(String searchString) async {
+    if (!FoodCatalogue.networkSourcesEnabled) return const [];
     final offWordResponse = await _offDataSource.fetchSearchWordResults(
       searchString,
     );
@@ -109,6 +128,7 @@ class ProductsRepository {
     String searchString, {
     bool forResolution = false,
   }) async {
+    if (!FoodCatalogue.networkSourcesEnabled) return const [];
     final spWordResponse = await _spBackendDataSource.fetchSearchWordResults(
       searchString,
       forResolution: forResolution,
@@ -178,6 +198,7 @@ class ProductsRepository {
     String barcode, {
     String? knownName,
   }) async {
+    if (!FoodCatalogue.networkSourcesEnabled) throw ProductNotFoundException();
     final productResponse = await _offDataSource.fetchBarcodeResults(barcode);
 
     final product = productResponse.product;

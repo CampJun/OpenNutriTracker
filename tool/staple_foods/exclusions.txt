@@ -1,0 +1,133 @@
+# Staple Food exclusions — read by tool/build_staple_foods.dart.
+#
+# The rules in the converter keep foods that are as purchased, before
+# cooking. This file removes what those rules let through but is not a
+# single-ingredient staple, or is clutter nobody weighs. One rule per line;
+# `#` starts a comment.
+#
+#   12345            an FDC id
+#   category: Name   every food in that USDA food category
+#   ^Text            every food whose name starts with Text
+#   text             every food whose name contains text
+#
+# Matching ignores case. The converter prints a warning for a rule that
+# matched nothing. build/staple_foods_review/dropped.csv lists every dropped
+# food with the rule that dropped it.
+
+# --- Whole categories of prepared foods ------------------------------------
+# Their "dry"/"flour" names are mixes and baked goods, not ingredients.
+category: Baked Products
+category: Snacks
+category: Soups, Sauces, and Gravies
+category: Beverages
+
+# --- Desserts and sweets (mixes are dropped by the "mix" rule) ------------
+^Sweeteners
+eggnog
+dulce de leche
+sweetened condensed
+
+# --- Breakfast cereals: keep the plain grains only ------------------------
+maple and brown sugar
+with cinnamon and spice
+
+# --- Dairy that is a product, not an ingredient ---------------------------
+ice cream
+milk shake
+cheese food
+cheese product
+cheese spread
+substitute
+imitation
+whipped topping
+dessert topping
+cream topping
+topping, fat free
+sour dressing
+milk dessert
+supplement
+milk, human
+milk, filled
+^Milk, chocolate
+^Yogurt, chocolate
+^Yogurt, fruit
+^Yogurt, frozen
+^Yogurt, vanilla
+^Yogurt, Greek, fruit
+^Yogurt, Greek, strawberry
+^Yogurt, Greek, vanilla
+with fruit
+with vegetables
+restaurant
+
+# --- Fats: oils, butter, lard yes; dressings, spreads, industrial no ------
+dressing
+mayonnaise
+margarine
+spread
+^Shortening
+industrial
+butter replacement
+fully hydrogenated
+contains added sliced flaxseed
+
+# --- Meat: retail cuts yes; organs, by-products and fat trim no -----------
+variety meats and by-products
+separable fat
+added solution
+may contain additives
+enhanced
+# One grade per cut: USDA Choice and "all grades" stay; Select and Prime are
+# near duplicates of the same cut.
+, select
+, prime
+
+# --- Processed meats and odds --------------------------------------------
+cured
+^Bacon
+veggie burgers
+nuts, formulated
+glazed
+in oil
+potato puffs
+hash brown
+o'brien
+potatoes, mashed
+# Traditional foods of Alaska Native communities — marine mammals, organs,
+# whole birds. The generic records cover the fish and berries among them.
+(alaska native)
+
+# --- More meat clutter -----------------------------------------------------
+# Imported Australian and New Zealand cuts duplicate the US retail cuts.
+australian, imported
+new zealand, imported
+lamb, australian
+# Fat trim, skin and carcass composites are not something anyone buys.
+external fat
+seam fat
+backfat
+skin only
+^Chicken, skin
+^Turkey, skin
+whole, skin
+carcass
+composite of trimmed retail cuts
+mechanically deboned
+# Organs other than liver and heart.
+giblets
+gizzard
+kidney
+# Prepared poultry.
+patty
+seasoned
+
+# --- Foundation records that are products, not ingredients ----------------
+category: Sausages and Luncheon Meats
+hummus
+pickles
+puffed
+applesauce
+
+# --- Blends -------------------------------------------------------------------
+^Oil, corn and canola
+^Oil, corn, peanut, and olive
