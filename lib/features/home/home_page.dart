@@ -198,7 +198,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     waterMlToday: waterMlToday,
                     waterGoalMl: waterGoalMl,
                   ),
-                  QuickStepsWidget(todaysActivities: userActivities),
+                  if (showActivityTracking)
+                    QuickStepsWidget(todaysActivities: userActivities),
                 ],
               ),
             ),

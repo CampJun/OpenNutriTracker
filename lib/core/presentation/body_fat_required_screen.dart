@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/styles/dimens.dart';
@@ -25,6 +26,7 @@ class BodyFatRequiredScreen extends StatefulWidget {
 }
 
 class _BodyFatRequiredScreenState extends State<BodyFatRequiredScreen> {
+  static final _log = Logger('BodyFatRequiredScreen');
   final _controller = TextEditingController();
   double? _percent;
   bool _saving = false;
@@ -35,13 +37,21 @@ class _BodyFatRequiredScreenState extends State<BodyFatRequiredScreen> {
     super.dispose();
   }
 
+  /// [BodyFatRequiredScreen.onSaved] re-reads the stored user rather than
+  /// trusting this write: it is dropped if a profile switch overtook it.
   Future<void> _save() async {
     setState(() => _saving = true);
-    widget.user.bodyFatReading = BodyFatReadingEntity(
-      bodyFatPercent: _percent!,
-      weightKg: widget.user.weightKG,
-    );
-    await locator<ProfileBloc>().updateUser(widget.user);
+    try {
+      widget.user.bodyFatReading = BodyFatReadingEntity(
+        bodyFatPercent: _percent!,
+        weightKg: widget.user.weightKG,
+      );
+      await locator<ProfileBloc>().updateUser(widget.user);
+    } catch (e, stack) {
+      _log.severe('Could not save the body fat reading', e, stack);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
     if (mounted) widget.onSaved();
   }
 

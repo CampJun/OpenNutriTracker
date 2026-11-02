@@ -37,9 +37,16 @@ class SetDailyStepsUsecase {
 
   /// Replaces [day]'s steps with [steps]; zero clears them. [day] is a
   /// logical day label, as for [LogUserActivityUsecase.logActivity].
-  Future<void> setDailySteps(DateTime day, int steps) async {
-    final user = await _getUserUsecase.getUserData();
-    await withTrackedDayLock(() async {
+  ///
+  /// [startedOn] is the profile the user entered the steps on; the write is
+  /// dropped if a profile switch overtook it. Returns whether it was saved.
+  Future<bool> setDailySteps(
+    DateTime day,
+    int steps, {
+    ProfileStamp? startedOn,
+  }) async {
+    final saved = await withTrackedDayLockOnProfile(() async {
+      final user = await _getUserUsecase.getUserData();
       final hasTrackedDay = await _addTrackedDayUsecase.hasTrackedDay(day);
       for (final row in await _stepsRows(day)) {
         await _userActivityRepository.deleteUserActivity(row);
@@ -53,7 +60,7 @@ class SetDailyStepsUsecase {
           );
         }
       }
-      if (steps <= 0) return;
+      if (steps <= 0) return true;
 
       final kcal = StepsCalc.netWalkingKcal(
         steps: steps,
@@ -71,7 +78,9 @@ class SetDailyStepsUsecase {
         ),
         day: day,
       );
-    });
+      return true;
+    }, startedOn: startedOn);
+    return saved == true;
   }
 
   Future<List<UserActivityEntity>> _stepsRows(DateTime day) async {

@@ -4,6 +4,7 @@ import 'package:opennutritracker/core/domain/usecase/get_config_usecase.dart';
 import 'package:opennutritracker/core/domain/usecase/set_daily_steps_usecase.dart';
 import 'package:opennutritracker/core/utils/calc/day_boundary_calc.dart';
 import 'package:opennutritracker/core/utils/locator.dart';
+import 'package:opennutritracker/core/utils/tracked_day_lock.dart';
 import 'package:opennutritracker/features/diary/presentation/bloc/calendar_day_bloc.dart';
 import 'package:opennutritracker/features/diary/presentation/bloc/diary_bloc.dart';
 import 'package:opennutritracker/features/home/presentation/bloc/home_bloc.dart';
@@ -13,6 +14,9 @@ import 'package:opennutritracker/generated/l10n.dart';
 /// refreshes every screen that shows the day's goal. [day] is a logical day
 /// label.
 Future<void> showDailyStepsDialog(BuildContext context, DateTime day) async {
+  // Taken before the dialog opens, so steps typed on one profile are not
+  // saved to another if the profile switches while it is open.
+  final startedOn = ProfileStamp.now();
   final usecase = locator<SetDailyStepsUsecase>();
   final current = await usecase.getDailySteps(day);
   if (!context.mounted) return;
@@ -21,7 +25,7 @@ Future<void> showDailyStepsDialog(BuildContext context, DateTime day) async {
     builder: (_) => DailyStepsDialog(initialSteps: current),
   );
   if (steps == null) return;
-  await usecase.setDailySteps(day, steps);
+  if (!await usecase.setDailySteps(day, steps, startedOn: startedOn)) return;
   locator<HomeBloc>().add(const LoadItemsEvent());
   locator<DiaryBloc>().add(const LoadDiaryYearEvent());
   locator<CalendarDayBloc>().add(RefreshCalendarDayEvent());

@@ -372,10 +372,8 @@ class _ProfilePageState extends State<ProfilePage> {
   ) async {
     final reading = await showDialog<BodyFatReadingEntity>(
       context: context,
-      builder: (BuildContext context) => SetBodyFatDialog(
-        currentWeightKg: userEntity.weightKG,
-        initialPercent: userEntity.bodyFatReading?.bodyFatPercent,
-      ),
+      builder: (BuildContext context) =>
+          SetBodyFatDialog(currentWeightKg: userEntity.weightKG),
     );
     if (reading != null) {
       userEntity.bodyFatReading = reading;

@@ -21,6 +21,7 @@ import 'package:opennutritracker/core/domain/usecase/log_user_activity_usecase.d
 import 'package:opennutritracker/core/domain/usecase/set_daily_steps_usecase.dart';
 import 'package:opennutritracker/core/utils/calc/calorie_goal_calc.dart';
 import 'package:opennutritracker/core/utils/calc/steps_calc.dart';
+import 'package:opennutritracker/core/utils/tracked_day_lock.dart';
 
 import '../fixture/user_entity_fixtures.dart';
 import '../helpers/fake_hive_db_provider.dart';
@@ -138,5 +139,15 @@ void main() {
 
     expect(await activityRepository.getAllUserActivityByDate(day), isEmpty);
     expect(await dayGoal(), closeTo(CalorieGoalCalc.getTdee(user), 1e-6));
+  });
+
+  test('is dropped when a profile switch overtook it', () async {
+    final startedOn = ProfileStamp.now();
+    await withProfileSwitchLock(() async {});
+
+    final saved = await usecase.setDailySteps(day, 10000, startedOn: startedOn);
+
+    expect(saved, isFalse);
+    expect(await activityRepository.getAllUserActivityByDate(day), isEmpty);
   });
 }

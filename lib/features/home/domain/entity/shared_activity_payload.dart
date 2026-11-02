@@ -54,7 +54,10 @@ class SharedActivityPayload {
       List<UserActivityEntity> activities) {
     return SharedActivityPayload(
       version: _currentVersion,
+      // A day's steps are that day's tracker total, and the receiving end
+      // has no activity to import them as, so they are not shared.
       items: activities
+          .where((activity) => !activity.physicalActivityEntity.isSteps)
           .map(SharedActivityItem.fromUserActivityEntity)
           .toList(),
     );

@@ -5,25 +5,22 @@ import 'package:opennutritracker/generated/l10n.dart';
 
 /// Takes a new body fat percentage and returns it as a reading measured at
 /// [currentWeightKg], which replaces the user's current one.
+///
+/// The field starts empty rather than holding the current percentage: OK
+/// pins lean body mass to today's weight, so confirming an untouched
+/// prefill would move the goal without the user entering anything.
 class SetBodyFatDialog extends StatefulWidget {
   final double currentWeightKg;
-  final double? initialPercent;
 
-  const SetBodyFatDialog({
-    super.key,
-    required this.currentWeightKg,
-    this.initialPercent,
-  });
+  const SetBodyFatDialog({super.key, required this.currentWeightKg});
 
   @override
   State<SetBodyFatDialog> createState() => _SetBodyFatDialogState();
 }
 
 class _SetBodyFatDialogState extends State<SetBodyFatDialog> {
-  late final _controller = TextEditingController(
-    text: widget.initialPercent?.toString() ?? '',
-  );
-  late double? _percent = widget.initialPercent;
+  final _controller = TextEditingController();
+  double? _percent;
 
   @override
   void dispose() {

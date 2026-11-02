@@ -72,7 +72,7 @@ See [`docs/demo-data.md`](docs/demo-data.md) for the demo seeder and the shipped
 Run a single test file:
 
 ```sh
-flutter test test/unit_test/tdee_calc_test.dart
+flutter test test/unit_test/katch_mcardle_tdee_test.dart
 ```
 
 Run static analysis:
@@ -329,7 +329,8 @@ The app makes no requests to USDA. `SearchProductsUseCase.searchFDCFoodByString`
 
 Calculation utilities live in `lib/core/utils/calc/`:
 
-- **TDEE** — `TDEECalc.getTDEEKcalIOM2005()` (IOM 2005 gender-specific equation). A WHO 2001 formula exists but is unused.
+- **TDEE** — `TDEECalc.getTDEEKcal()`: Katch-McArdle BMR from the user's body fat reading's lean body mass, × 1.2 (sedentary). No activity multiplier; see `docs/adr/0001-katch-mcardle-replaces-iom-2005.md`.
+- **Daily Steps** — `StepsCalc.netWalkingKcal()`, stored as one activity row per day (`PhysicalActivityEntity.stepsCode`) via `SetDailyStepsUsecase`.
 - **Calorie goal** — TDEE + weight-goal adjustment (±500 kcal) + optional user kcal offset + today's burned activity kcal.
 - **Macro defaults** — 60% carbs / 25% fat / 15% protein of total kcal goal. Per-macro overrides stored in `ConfigEntity`.
 - **MET** — `MetCalc` converts MET × weight × hours to burned kcal for activities.

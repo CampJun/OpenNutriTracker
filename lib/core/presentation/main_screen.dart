@@ -142,7 +142,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (_userMissingBodyFat != null) {
       return BodyFatRequiredScreen(
         user: _userMissingBodyFat!,
-        onSaved: () => setState(() => _userMissingBodyFat = null),
+        onSaved: _checkBodyFatReading,
       );
     }
     final isDark = Theme.of(context).brightness == Brightness.dark;
