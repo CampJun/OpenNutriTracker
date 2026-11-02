@@ -4,8 +4,9 @@ import 'package:opennutritracker/core/styles/dimens.dart';
 import 'package:opennutritracker/core/utils/custom_icons.dart';
 import 'package:opennutritracker/generated/l10n.dart';
 
-/// The three ways into the add-food screen besides typing a search: scan a
-/// barcode, photograph the meal, or describe it in words.
+/// The ways into the add-food screen besides typing a search: scan a
+/// barcode, photograph the meal, describe it in words, or photograph a
+/// nutrition label.
 ///
 /// These used to be an icon inside the search field and an icon in the app
 /// bar that opened a second screen, which is where the photo action lived —
@@ -18,6 +19,10 @@ class AddFoodMethodTiles extends StatelessWidget {
   final VoidCallback onSnapMealPressed;
   final VoidCallback onDescribePressed;
 
+  /// Null hides the label tile: only shown when a provider that can read
+  /// labels is configured (docs/adr/0003).
+  final VoidCallback? onLabelPressed;
+
   /// Whether the describe panel below is open, so its tile reads as on.
   final bool describeOpen;
 
@@ -27,6 +32,7 @@ class AddFoodMethodTiles extends StatelessWidget {
     required this.onSnapMealPressed,
     required this.onDescribePressed,
     required this.describeOpen,
+    this.onLabelPressed,
   });
 
   @override
@@ -37,6 +43,7 @@ class AddFoodMethodTiles extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final s = S.of(context);
     final onBarcode = onBarcodePressed;
+    final onLabel = onLabelPressed;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -95,6 +102,24 @@ class AddFoodMethodTiles extends StatelessWidget {
             ),
           ),
         ),
+        if (onLabel != null) ...[
+          const SizedBox(width: Dimens.spacing8),
+          Expanded(
+            child: Semantics(
+              identifier: 'add-meal-method-label',
+              container: true,
+              child: _MethodTile(
+                icon: Icons.document_scanner_rounded,
+                label: s.addMealLabelScanLabel,
+                background: palette.surfaceMuted,
+                foreground: palette.textStrong,
+                border: scheme.primary.withValues(alpha: 0.35),
+                ai: true,
+                onPressed: onLabel,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

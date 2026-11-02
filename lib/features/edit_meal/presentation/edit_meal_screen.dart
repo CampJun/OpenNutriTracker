@@ -27,6 +27,7 @@ import 'package:opennutritracker/core/utils/navigation_options.dart';
 import 'package:opennutritracker/core/utils/navigation_predicates.dart';
 import 'package:opennutritracker/features/add_meal/presentation/log_tray.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
+import 'package:opennutritracker/features/add_meal/domain/nutrition_label.dart';
 import 'package:opennutritracker/features/edit_meal/presentation/bloc/edit_meal_bloc.dart';
 import 'package:opennutritracker/features/edit_meal/presentation/widgets/default_meal_image.dart';
 import 'package:opennutritracker/features/meal_detail/meal_detail_screen.dart';
@@ -79,6 +80,49 @@ class _EditMealScreenState extends State<EditMealScreen> {
   final _magnesiumTextController = TextEditingController();
   final _vitaminDTextController = TextEditingController();
   final _vitaminB12TextController = TextEditingController();
+  // The other ten nutrients the app stores. Shown in Advanced mode since
+  // label reading, which fills them (docs/adr/0003).
+  final _transFatTextController = TextEditingController();
+  final _cholesterolTextController = TextEditingController();
+  final _monounsaturatedFatTextController = TextEditingController();
+  final _polyunsaturatedFatTextController = TextEditingController();
+  final _vitaminATextController = TextEditingController();
+  final _vitaminCTextController = TextEditingController();
+  final _vitaminB6TextController = TextEditingController();
+  final _niacinTextController = TextEditingController();
+  final _zincTextController = TextEditingController();
+  final _phosphorusTextController = TextEditingController();
+
+  /// Non-null while reviewing a label read.
+  LabelReview? _labelReview;
+
+  /// The field each label nutrient is reviewed in. Energy is absent: its
+  /// field shows the user's energy unit and is filled separately.
+  late final Map<LabelNutrient, TextEditingController> _labelFields = {
+    LabelNutrient.fat: _fatTextController,
+    LabelNutrient.saturatedFat: _saturatedFatTextController,
+    LabelNutrient.transFat: _transFatTextController,
+    LabelNutrient.monounsaturatedFat: _monounsaturatedFatTextController,
+    LabelNutrient.polyunsaturatedFat: _polyunsaturatedFatTextController,
+    LabelNutrient.cholesterol: _cholesterolTextController,
+    LabelNutrient.sodium: _sodiumTextController,
+    LabelNutrient.carbohydrates: _carbsTextController,
+    LabelNutrient.fiber: _fiberTextController,
+    LabelNutrient.sugars: _sugarsTextController,
+    LabelNutrient.protein: _proteinTextController,
+    LabelNutrient.vitaminA: _vitaminATextController,
+    LabelNutrient.vitaminC: _vitaminCTextController,
+    LabelNutrient.vitaminD: _vitaminDTextController,
+    LabelNutrient.vitaminB6: _vitaminB6TextController,
+    LabelNutrient.vitaminB12: _vitaminB12TextController,
+    LabelNutrient.niacin: _niacinTextController,
+    LabelNutrient.calcium: _calciumTextController,
+    LabelNutrient.iron: _ironTextController,
+    LabelNutrient.magnesium: _magnesiumTextController,
+    LabelNutrient.zinc: _zincTextController,
+    LabelNutrient.phosphorus: _phosphorusTextController,
+    LabelNutrient.potassium: _potassiumTextController,
+  };
 
   final _units = ['g', 'ml', 'g/ml'];
   String? selectedUnit;
@@ -185,6 +229,19 @@ class _EditMealScreenState extends State<EditMealScreen> {
         _mealEntity.nutriments.vitaminD100.toStringOrEmpty();
     _vitaminB12TextController.text =
         _mealEntity.nutriments.vitaminB12100.toStringOrEmpty();
+    final n = _mealEntity.nutriments;
+    _transFatTextController.text = n.transFat100.toStringOrEmpty();
+    _cholesterolTextController.text = n.cholesterol100.toStringOrEmpty();
+    _monounsaturatedFatTextController.text =
+        n.monounsaturatedFat100.toStringOrEmpty();
+    _polyunsaturatedFatTextController.text =
+        n.polyunsaturatedFat100.toStringOrEmpty();
+    _vitaminATextController.text = n.vitaminA100.toStringOrEmpty();
+    _vitaminCTextController.text = n.vitaminC100.toStringOrEmpty();
+    _vitaminB6TextController.text = n.vitaminB6100.toStringOrEmpty();
+    _niacinTextController.text = n.niacin100.toStringOrEmpty();
+    _zincTextController.text = n.zinc100.toStringOrEmpty();
+    _phosphorusTextController.text = n.phosphorus100.toStringOrEmpty();
     _localImagePath = _mealEntity.localImagePath;
     selectedUnit = _switchButtonUnit(_mealEntity.mealUnit);
 
@@ -199,6 +256,9 @@ class _EditMealScreenState extends State<EditMealScreen> {
         _mealEntity.mealUnit ?? "0",
       );
     }
+
+    _labelReview = args.labelReview;
+    if (_labelReview != null) _seedFromLabel(_labelReview!, usesKjOnLoad);
 
     _mealUnitButtonSegment = [
       ButtonSegment(
@@ -222,6 +282,94 @@ class _EditMealScreenState extends State<EditMealScreen> {
     ];
   }
 
+  /// Opens the form on the label's own numbers: Advanced mode, grams, and a
+  /// base quantity of one Label Serving, so every field reads exactly as
+  /// the label prints it. Saving scales them to per 100 g as usual.
+  void _seedFromLabel(LabelReview review, bool usesKj) {
+    final label = review.label;
+    _formMode = CustomMealFormMode.advanced;
+    // The stored preference must not switch a review to Simple mode, which
+    // would save none of the micronutrients.
+    _formModeHydrated = true;
+    _isTotal = false;
+    selectedUnit = _units[0];
+    // Grams, whatever the unit setting: the save reads the base quantity
+    // as grams.
+    _baseQuantityTextController.text = _labelAmountText(label.servingGrams);
+    _kcalTextController.text = _formatStoredKcalForDisplay(
+      label.amounts[LabelNutrient.energyKcal],
+      usesKj,
+    );
+    for (final entry in _labelFields.entries) {
+      entry.value.text = _labelAmountText(label.amounts[entry.key]);
+    }
+  }
+
+  /// A label amount the way the label prints it: "14", not "14.0".
+  static String _labelAmountText(double? value) {
+    if (value == null) return '';
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toString();
+  }
+
+  /// Why [nutrient]'s field is highlighted, or null. Null [nutrient] asks
+  /// about the serving weight.
+  String? _labelFlagText(LabelNutrient? nutrient) {
+    final review = _labelReview;
+    if (review == null) return null;
+    final s = S.of(context);
+    final texts = [
+      for (final flag in review.flags)
+        if (flag.nutrient == nutrient)
+          switch (flag.kind) {
+            LabelFlagKind.dailyValueMismatch => s.labelFlagDailyValue(
+              _formatLabelNumber(flag.printedPercent!),
+              _formatLabelNumber(flag.impliedAmount!),
+              _labelUnitText(flag.nutrient!.unit),
+            ),
+            LabelFlagKind.energyMismatch => s.labelFlagEnergy(
+              flag.computedKcal!.round().toString(),
+            ),
+            LabelFlagKind.partExceedsTotal => s.labelFlagPartExceedsTotal(
+              _labelNutrientName(flag.part!),
+              _formatLabelNumber(flag.partAmount!),
+            ),
+            LabelFlagKind.macrosExceedServing =>
+              s.labelFlagMacrosExceedServing,
+            LabelFlagKind.servingWeightMissing =>
+              s.labelFlagServingWeightMissing,
+          },
+    ];
+    return texts.isEmpty ? null : texts.join('\n');
+  }
+
+  String _labelNutrientName(LabelNutrient nutrient) {
+    final s = S.of(context);
+    return switch (nutrient) {
+      LabelNutrient.saturatedFat => s.saturatedFatLabel,
+      LabelNutrient.transFat => s.transFatLabel,
+      LabelNutrient.addedSugars => s.labelAddedSugarsLabel,
+      LabelNutrient.fiber => s.fiberLabel,
+      LabelNutrient.sugars => s.sugarLabel,
+      _ => nutrient.name,
+    };
+  }
+
+  static String _labelUnitText(LabelUnit unit) => switch (unit) {
+    LabelUnit.g => 'g',
+    LabelUnit.mg => 'mg',
+    LabelUnit.mcg => 'µg',
+    LabelUnit.kcal => 'kcal',
+  };
+
+  static String _formatLabelNumber(double value) {
+    final rounded = (value * 10).round() / 10;
+    return rounded == rounded.roundToDouble()
+        ? rounded.toInt().toString()
+        : rounded.toString();
+  }
+
   @override
   void dispose() {
     _nameTextController.dispose();
@@ -234,6 +382,30 @@ class _EditMealScreenState extends State<EditMealScreen> {
     _carbsTextController.dispose();
     _fatTextController.dispose();
     _proteinTextController.dispose();
+    for (final controller in [
+      _fiberTextController,
+      _saturatedFatTextController,
+      _sugarsTextController,
+      _sodiumTextController,
+      _calciumTextController,
+      _ironTextController,
+      _potassiumTextController,
+      _magnesiumTextController,
+      _vitaminDTextController,
+      _vitaminB12TextController,
+      _transFatTextController,
+      _cholesterolTextController,
+      _monounsaturatedFatTextController,
+      _polyunsaturatedFatTextController,
+      _vitaminATextController,
+      _vitaminCTextController,
+      _vitaminB6TextController,
+      _niacinTextController,
+      _zincTextController,
+      _phosphorusTextController,
+    ]) {
+      controller.dispose();
+    }
     // Do not close _editMealBloc here if provided as a singleton by locator.
     super.dispose();
   }
@@ -350,6 +522,10 @@ class _EditMealScreenState extends State<EditMealScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (_labelReview != null) ...[
+          _LabelReviewBanner(flagged: _labelReview!.flags.isNotEmpty),
+          const SizedBox(height: 16),
+        ],
         // Custom meals get the same picker tile recipes use — a single
         // tappable circle with an overlay camera icon, "Add a photo"
         // text beneath, and a bottom-sheet for the action choice.
@@ -373,7 +549,10 @@ class _EditMealScreenState extends State<EditMealScreen> {
         // homemade meal as "name + per-serving macros" without the per-100g
         // scaffolding; the advanced view keeps the precise path for users
         // who care about base quantities and serving math.
-        if (_mealEntity.source == MealSourceEntity.custom) ...[
+        // Hidden while reviewing a label: Simple mode keeps no
+        // micronutrients and no serving, so it would lose most of the read.
+        if (_mealEntity.source == MealSourceEntity.custom &&
+            _labelReview == null) ...[
           Text(
             S.of(context).customMealFormModeLabel,
             style: Theme.of(context).textTheme.labelMedium,
@@ -413,6 +592,9 @@ class _EditMealScreenState extends State<EditMealScreen> {
         ],
         TextFormField(
           controller: _nameTextController,
+          // A label does not say what the product is called, so a review
+          // starts here.
+          autofocus: _labelReview != null,
           decoration: InputDecoration(
             labelText: S.of(context).mealNameLabel,
             border: const OutlineInputBorder(borderRadius: Dimens.borderRadiusM),
@@ -498,6 +680,8 @@ class _EditMealScreenState extends State<EditMealScreen> {
             inputFormatters: CustomTextInputFormatter.doubleOnly(),
             decoration: InputDecoration(
                 labelText: '${S.of(context).baseQuantityLabel} ($unitSuffix)',
+                errorText: _labelFlagText(null),
+                errorMaxLines: 3,
                 border: const OutlineInputBorder(borderRadius: Dimens.borderRadiusM)),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
@@ -530,6 +714,8 @@ class _EditMealScreenState extends State<EditMealScreen> {
           controller: _kcalTextController,
           inputFormatters: CustomTextInputFormatter.doubleOnly(),
           decoration: InputDecoration(
+              errorText: _labelFlagText(LabelNutrient.energyKcal),
+              errorMaxLines: 3,
               labelText:
                   '${S.of(context).mealEnergyLabel} ($energyUnitSuffix)',
               helperText: energyHelper,
@@ -541,6 +727,8 @@ class _EditMealScreenState extends State<EditMealScreen> {
           controller: _carbsTextController,
           inputFormatters: CustomTextInputFormatter.doubleOnly(),
           decoration: InputDecoration(
+              errorText: _labelFlagText(LabelNutrient.carbohydrates),
+              errorMaxLines: 3,
               labelText: S.of(context).mealCarbsLabel,
               helperText: macroHelper,
               border: const OutlineInputBorder(borderRadius: Dimens.borderRadiusM)),
@@ -551,6 +739,8 @@ class _EditMealScreenState extends State<EditMealScreen> {
           controller: _fatTextController,
           inputFormatters: CustomTextInputFormatter.doubleOnly(),
           decoration: InputDecoration(
+              errorText: _labelFlagText(LabelNutrient.fat),
+              errorMaxLines: 3,
               labelText: S.of(context).mealFatLabel,
               helperText: macroHelper,
               border: const OutlineInputBorder(borderRadius: Dimens.borderRadiusM)),
@@ -561,6 +751,8 @@ class _EditMealScreenState extends State<EditMealScreen> {
           controller: _proteinTextController,
           inputFormatters: CustomTextInputFormatter.doubleOnly(),
           decoration: InputDecoration(
+              errorText: _labelFlagText(LabelNutrient.protein),
+              errorMaxLines: 3,
               labelText: S.of(context).mealProteinLabel,
               helperText: macroHelper,
               border: const OutlineInputBorder(borderRadius: Dimens.borderRadiusM)),
@@ -573,25 +765,16 @@ class _EditMealScreenState extends State<EditMealScreen> {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
-          _buildMicroField(_fiberTextController, S.of(context).fiberLabel, 'g', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_saturatedFatTextController, S.of(context).saturatedFatLabel, 'g', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_sugarsTextController, S.of(context).sugarLabel, 'g', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_sodiumTextController, S.of(context).sodiumLabel, 'mg', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_calciumTextController, S.of(context).calciumLabel, 'mg', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_ironTextController, S.of(context).ironLabel, 'mg', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_potassiumTextController, S.of(context).potassiumLabel, 'mg', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_magnesiumTextController, S.of(context).magnesiumLabel, 'mg', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_vitaminDTextController, S.of(context).vitaminDLabel, 'µg', perQtyHelper),
-          const SizedBox(height: 16),
-          _buildMicroField(_vitaminB12TextController, S.of(context).vitaminB12Label, 'µg', perQtyHelper),
+          for (final (i, field) in _microFields(context).indexed) ...[
+            if (i > 0) const SizedBox(height: 16),
+            _buildMicroField(
+              field.controller,
+              field.label,
+              field.unit,
+              perQtyHelper,
+              errorText: _labelFlagText(field.nutrient),
+            ),
+          ],
         ],
         if (!_editOnly) ...[
           const SizedBox(height: 24),
@@ -608,12 +791,49 @@ class _EditMealScreenState extends State<EditMealScreen> {
     );
   }
 
+  /// The Advanced-mode micronutrient fields, in label order: fats,
+  /// cholesterol and sodium, carbohydrate parts, vitamins, minerals.
+  List<
+    ({
+      TextEditingController controller,
+      String label,
+      String unit,
+      LabelNutrient nutrient,
+    })
+  >
+  _microFields(BuildContext context) {
+    final s = S.of(context);
+    return [
+      (controller: _saturatedFatTextController, label: s.saturatedFatLabel, unit: 'g', nutrient: LabelNutrient.saturatedFat),
+      (controller: _transFatTextController, label: s.transFatLabel, unit: 'g', nutrient: LabelNutrient.transFat),
+      (controller: _monounsaturatedFatTextController, label: s.monounsaturatedFatLabel, unit: 'g', nutrient: LabelNutrient.monounsaturatedFat),
+      (controller: _polyunsaturatedFatTextController, label: s.polyunsaturatedFatLabel, unit: 'g', nutrient: LabelNutrient.polyunsaturatedFat),
+      (controller: _cholesterolTextController, label: s.cholesterolLabel, unit: 'mg', nutrient: LabelNutrient.cholesterol),
+      (controller: _sodiumTextController, label: s.sodiumLabel, unit: 'mg', nutrient: LabelNutrient.sodium),
+      (controller: _fiberTextController, label: s.fiberLabel, unit: 'g', nutrient: LabelNutrient.fiber),
+      (controller: _sugarsTextController, label: s.sugarLabel, unit: 'g', nutrient: LabelNutrient.sugars),
+      (controller: _vitaminATextController, label: s.vitaminALabel, unit: 'µg', nutrient: LabelNutrient.vitaminA),
+      (controller: _vitaminCTextController, label: s.vitaminCLabel, unit: 'mg', nutrient: LabelNutrient.vitaminC),
+      (controller: _vitaminDTextController, label: s.vitaminDLabel, unit: 'µg', nutrient: LabelNutrient.vitaminD),
+      (controller: _vitaminB6TextController, label: s.vitaminB6Label, unit: 'mg', nutrient: LabelNutrient.vitaminB6),
+      (controller: _vitaminB12TextController, label: s.vitaminB12Label, unit: 'µg', nutrient: LabelNutrient.vitaminB12),
+      (controller: _niacinTextController, label: s.niacinLabel, unit: 'mg', nutrient: LabelNutrient.niacin),
+      (controller: _calciumTextController, label: s.calciumLabel, unit: 'mg', nutrient: LabelNutrient.calcium),
+      (controller: _ironTextController, label: s.ironLabel, unit: 'mg', nutrient: LabelNutrient.iron),
+      (controller: _potassiumTextController, label: s.potassiumLabel, unit: 'mg', nutrient: LabelNutrient.potassium),
+      (controller: _magnesiumTextController, label: s.magnesiumLabel, unit: 'mg', nutrient: LabelNutrient.magnesium),
+      (controller: _zincTextController, label: s.zincLabel, unit: 'mg', nutrient: LabelNutrient.zinc),
+      (controller: _phosphorusTextController, label: s.phosphorusLabel, unit: 'mg', nutrient: LabelNutrient.phosphorus),
+    ];
+  }
+
   Widget _buildMicroField(
     TextEditingController controller,
     String label,
     String unit,
-    String? helperText,
-  ) {
+    String? helperText, {
+    String? errorText,
+  }) {
     return TextFormField(
       controller: controller,
       inputFormatters: CustomTextInputFormatter.doubleOnly(),
@@ -621,6 +841,9 @@ class _EditMealScreenState extends State<EditMealScreen> {
         labelText: label,
         suffixText: unit,
         helperText: helperText,
+        // A highlight, not a validation: nothing reads it on save.
+        errorText: errorText,
+        errorMaxLines: 3,
         border: const OutlineInputBorder(borderRadius: Dimens.borderRadiusM),
       ),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -859,6 +1082,16 @@ class _EditMealScreenState extends State<EditMealScreen> {
         String magnesiumText = _magnesiumTextController.text;
         String vitaminDText = _vitaminDTextController.text;
         String vitaminB12Text = _vitaminB12TextController.text;
+        String transFatText = _transFatTextController.text;
+        String cholesterolText = _cholesterolTextController.text;
+        String monounsaturatedFatText = _monounsaturatedFatTextController.text;
+        String polyunsaturatedFatText = _polyunsaturatedFatTextController.text;
+        String vitaminAText = _vitaminATextController.text;
+        String vitaminCText = _vitaminCTextController.text;
+        String vitaminB6Text = _vitaminB6TextController.text;
+        String niacinText = _niacinTextController.text;
+        String zincText = _zincTextController.text;
+        String phosphorusText = _phosphorusTextController.text;
         if (_isTotal) {
           final mealQty = double.tryParse(mealQuantity) ?? 0.0;
           final baseQtyForConversion =
@@ -884,6 +1117,16 @@ class _EditMealScreenState extends State<EditMealScreen> {
             magnesiumText = convertTotal(magnesiumText);
             vitaminDText = convertTotal(vitaminDText);
             vitaminB12Text = convertTotal(vitaminB12Text);
+            transFatText = convertTotal(transFatText);
+            cholesterolText = convertTotal(cholesterolText);
+            monounsaturatedFatText = convertTotal(monounsaturatedFatText);
+            polyunsaturatedFatText = convertTotal(polyunsaturatedFatText);
+            vitaminAText = convertTotal(vitaminAText);
+            vitaminCText = convertTotal(vitaminCText);
+            vitaminB6Text = convertTotal(vitaminB6Text);
+            niacinText = convertTotal(niacinText);
+            zincText = convertTotal(zincText);
+            phosphorusText = convertTotal(phosphorusText);
           }
         }
 
@@ -909,6 +1152,16 @@ class _EditMealScreenState extends State<EditMealScreen> {
           magnesiumText: magnesiumText,
           vitaminDText: vitaminDText,
           vitaminB12Text: vitaminB12Text,
+          transFatText: transFatText,
+          cholesterolText: cholesterolText,
+          monounsaturatedFatText: monounsaturatedFatText,
+          polyunsaturatedFatText: polyunsaturatedFatText,
+          vitaminAText: vitaminAText,
+          vitaminCText: vitaminCText,
+          vitaminB6Text: vitaminB6Text,
+          niacinText: niacinText,
+          zincText: zincText,
+          phosphorusText: phosphorusText,
           barcodeOverride: rawBarcode,
           localImagePathOverride: _localImagePath,
           clearLocalImagePath: _localImageCleared && _localImagePath == null,
@@ -1100,6 +1353,11 @@ class EditMealScreenArguments {
   /// new food opens in so that it adds there instead of logging.
   final LogTray? logTray;
 
+  /// Set when the meal was read from a nutrition label photo
+  /// (docs/adr/0003): the form opens on the label's own numbers, per Label
+  /// Serving, with the failed checks highlighted.
+  final LabelReview? labelReview;
+
   EditMealScreenArguments(
     this.day,
     this.mealEntity,
@@ -1107,6 +1365,7 @@ class EditMealScreenArguments {
     this.usesImperialUnits, {
     this.editOnly = false,
     this.logTray,
+    this.labelReview,
   });
 }
 
@@ -1252,6 +1511,46 @@ class _EditMealBarcodeScanPageState extends State<_EditMealBarcodeScanPage>
     return Scaffold(
       appBar: AppBar(title: Text(S.of(context).customMealBarcodeScanButton)),
       body: MobileScanner(controller: _controller, onDetect: _onDetect),
+    );
+  }
+}
+
+/// Says where a review's numbers came from, and what to do with them.
+class _LabelReviewBanner extends StatelessWidget {
+  final bool flagged;
+
+  const _LabelReviewBanner({required this.flagged});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final s = S.of(context);
+    return Semantics(
+      identifier: 'edit-meal-label-review-banner',
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: scheme.secondaryContainer,
+          borderRadius: Dimens.borderRadiusM,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.auto_awesome_rounded, color: scheme.onSecondaryContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                flagged
+                    ? s.labelReviewBannerFlagged
+                    : s.labelReviewBanner,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -13,14 +13,15 @@ import 'package:meta/meta.dart';
 /// unchanged, and this fork's tests switch them off where they test it.
 abstract final class FoodCatalogue {
   static bool _networkSourcesEnabled = false;
-  static bool _barcodeScannerEnabled = false;
+  static bool _barcodeScannerEnabled = true;
 
   /// Open Food Facts text search, barcode lookup and product refresh, and
   /// the Supabase multi-source backend.
   static bool get networkSourcesEnabled => _networkSourcesEnabled;
 
-  /// The barcode scanner. Hidden until it can look up the user's own foods
-  /// (it only knew Open Food Facts).
+  /// The barcode scanner. With the network sources off it looks up the
+  /// user's Custom Foods only, and a miss offers to read the label
+  /// (docs/adr/0003).
   static bool get barcodeScannerEnabled => _barcodeScannerEnabled;
 
   @visibleForTesting
@@ -31,6 +32,5 @@ abstract final class FoodCatalogue {
 
   /// This fork's configuration.
   @visibleForTesting
-  static void resetForTesting() =>
-      setForTesting(network: false, scanner: false);
+  static void resetForTesting() => setForTesting(network: false, scanner: true);
 }

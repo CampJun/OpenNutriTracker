@@ -31,7 +31,10 @@ class ScannerLoadedState extends ScannerState {
 class ScannerFailedState extends ScannerState {
   final ScannerFailedStateType type;
 
-  const ScannerFailedState(this.type);
+  /// For the hand-off to a new Custom Food when the barcode is not found.
+  final bool usesImperialUnits;
+
+  const ScannerFailedState(this.type, {this.usesImperialUnits = false});
 
   // The type has to be part of equality. `emit` drops a state equal to the
   // current one, so leaving it out means a scan that fails a different way
@@ -39,7 +42,7 @@ class ScannerFailedState extends ScannerState {
   // because a loading state always separates two failures, but it is a quiet
   // trap to leave lying in the way of the next person here.
   @override
-  List<Object?> get props => [type];
+  List<Object?> get props => [type, usesImperialUnits];
 }
 
 enum ScannerFailedStateType { productNotFound, error }

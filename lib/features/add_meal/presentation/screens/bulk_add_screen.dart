@@ -1582,6 +1582,7 @@ class _BulkAddScreenState extends State<BulkAddScreen> {
       // No placeholder: a direct path has no serving vendor to name, so this
       // string is flat where OpenRouter's is parameterised.
       AiProvider.openai => S.of(context).bulkAddPhotoDisclosureOpenAI,
+      AiProvider.deepseek => S.of(context).bulkAddPhotoDisclosureDeepSeek,
       // The address, and nothing beyond it. Not "no third party receives it",
       // however tempting: the app cannot tell a local runtime from a
       // self-hosted proxy forwarding to OpenAI, and #732 ruled those out of

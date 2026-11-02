@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:opennutritracker/features/scanner/scanner_screen.dart';
+import 'package:opennutritracker/core/utils/navigation_options.dart';
 import 'package:get_it/get_it.dart';
 import 'package:opennutritracker/core/domain/entity/app_theme_entity.dart';
 import 'package:opennutritracker/core/domain/entity/config_entity.dart';
@@ -132,18 +134,21 @@ Widget _app(List<RouteSettings> pushed) => MaterialApp(
 );
 
 /// The add-food screen and the recipe builder's ingredient search with this
-/// fork's food sources: Staple Foods only, no Open Food Facts, no scanner
-/// (docs/adr/0002).
+/// fork's food sources: Staple Foods only, no Open Food Facts (docs/adr/0002),
+/// and a scanner that finds the user's Custom Foods (docs/adr/0003).
 void main() {
   setUp(FoodCatalogue.resetForTesting);
   tearDown(() => FoodCatalogue.setForTesting(network: true, scanner: true));
 
-  testWidgets('add food: no barcode tile and no Products chip', (tester) async {
+  testWidgets('add food: a barcode tile and no Products chip', (tester) async {
     await _register();
     await tester.pumpWidget(_app([]));
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsIdentifier('add-meal-method-barcode'), findsNothing);
+    expect(
+      find.bySemanticsIdentifier('add-meal-method-barcode'),
+      findsOneWidget,
+    );
     expect(find.bySemanticsIdentifier('add-meal-method-photo'), findsOneWidget);
     expect(
       find.bySemanticsIdentifier('add-meal-method-describe'),
@@ -153,7 +158,9 @@ void main() {
     expect(find.text(l10nEn.searchFoodPage), findsOneWidget);
   });
 
-  testWidgets('a typed barcode is searched, not scanned', (tester) async {
+  testWidgets('a typed barcode is looked up among Custom Foods', (
+    tester,
+  ) async {
     await _register();
     final pushed = <RouteSettings>[];
     await tester.pumpWidget(_app(pushed));
@@ -166,7 +173,13 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
-    expect(pushed, isEmpty);
+    // Searching Staple Foods for a barcode can never match; the scanner's
+    // lookup finds the Custom Food that carries it, or offers the label.
+    expect(pushed.single.name, NavigationOptions.scannerRoute);
+    expect(
+      (pushed.single.arguments as ScannerScreenArguments).initialBarcode,
+      '4000417025005',
+    );
   });
 
   testWidgets('recipe ingredient search: Food and Recent, no Products', (
@@ -195,6 +208,6 @@ void main() {
     expect(find.text(l10nEn.searchProductsPage), findsNothing);
     expect(find.text(l10nEn.searchFoodPage), findsOneWidget);
     expect(find.text(l10nEn.recentlyAddedLabel), findsOneWidget);
-    expect(find.bySemanticsIdentifier('meal-search-barcode'), findsNothing);
+    expect(find.bySemanticsIdentifier('meal-search-barcode'), findsOneWidget);
   });
 }

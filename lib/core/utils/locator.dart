@@ -85,6 +85,7 @@ import 'package:opennutritracker/features/add_meal/data/model_meal_photo_interpr
 import 'package:opennutritracker/features/add_meal/data/model_meal_text_interpreter.dart';
 import 'package:opennutritracker/features/add_meal/domain/usecase/probe_ai_endpoint_usecase.dart';
 import 'package:opennutritracker/features/add_meal/domain/usecase/read_meal_photo_usecase.dart';
+import 'package:opennutritracker/features/add_meal/domain/usecase/read_nutrition_label_usecase.dart';
 import 'package:opennutritracker/features/add_meal/domain/usecase/read_meal_text_usecase.dart';
 import 'package:opennutritracker/features/add_meal/domain/usecase/run_ai_endpoint_probe_usecase.dart';
 import 'package:opennutritracker/core/utils/hive_db_provider.dart';
@@ -182,6 +183,12 @@ Future<void> initLocator() async {
       locator<AiCredentialStorage>(),
       (selection) =>
           ModelMealPhotoInterpreter(mealItemsApiFor(locator(), selection)),
+    ),
+  );
+  locator.registerLazySingleton<ReadNutritionLabelUseCase>(
+    () => ReadNutritionLabelUseCase(
+      locator<AiCredentialStorage>(),
+      (selection) => nutritionLabelApiFor(locator(), selection),
     ),
   );
   // A singleton because it is the thing that outlives the settings dialog:

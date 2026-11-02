@@ -3,7 +3,9 @@ import 'package:opennutritracker/core/data/data_source/remote_search_cache_data_
 import 'package:opennutritracker/core/data/data_source/custom_meal_data_source.dart';
 import 'package:opennutritracker/core/data/dbo/meal_dbo.dart';
 import 'package:opennutritracker/core/domain/usecase/toggle_favourite_meal_usecase.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/features/add_meal/data/repository/products_repository.dart';
+import 'package:opennutritracker/features/scanner/data/product_not_found_exception.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
 
 /// Looks up the meal corresponding to a scanned barcode. Resolution order:
@@ -50,6 +52,13 @@ class SearchProductByBarcodeUseCase {
         .firstOrNull;
     if (customMatch != null) {
       return MealEntity.fromMealDBO(customMatch);
+    }
+
+    // With the network sources off (docs/adr/0002), a scan finds the user's
+    // Custom Foods and nothing else: an Open Food Facts copy cached before
+    // the switch is not one of their foods.
+    if (!FoodCatalogue.networkSourcesEnabled) {
+      throw ProductNotFoundException();
     }
 
     final cachedMatch = _cachedOffMealDataSource.getDetailedByBarcode(barcode);

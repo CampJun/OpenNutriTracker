@@ -11,6 +11,10 @@ enum AiProvider {
   openrouter,
   openai,
 
+  /// DeepSeek's own API, reached directly at a compiled-in `https://`
+  /// address. This fork's label reader (docs/adr/0003).
+  deepseek,
+
   /// A server the user runs — Ollama, LM Studio, llama.cpp, vLLM — reached at
   /// an address they supply.
   ///
@@ -603,7 +607,8 @@ class AiCredentialStorage {
   }) => switch (provider) {
     AiProvider.anthropic ||
     AiProvider.openrouter ||
-    AiProvider.openai => apiKey != null,
+    AiProvider.openai ||
+    AiProvider.deepseek => apiKey != null,
     // **And the model**, which is where #738's "the model is part of what
     // configured means here" is finally enforced rather than asserted. The
     // three hosted providers fall back to a curated default; this one has no

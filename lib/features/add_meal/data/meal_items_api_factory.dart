@@ -3,6 +3,8 @@ import 'package:opennutritracker/core/utils/ai_credential_storage.dart';
 import 'package:opennutritracker/core/utils/ai_model_catalogue.dart';
 import 'package:opennutritracker/core/utils/plaintext_destination_guard.dart';
 import 'package:opennutritracker/features/add_meal/data/anthropic_meal_items_api.dart';
+import 'package:opennutritracker/features/add_meal/data/deepseek_nutrition_label_api.dart';
+import 'package:opennutritracker/features/add_meal/domain/nutrition_label.dart';
 import 'package:opennutritracker/features/add_meal/data/openai_meal_items_api.dart';
 import 'package:opennutritracker/features/add_meal/data/openai_compatible_meal_items_api.dart';
 import 'package:opennutritracker/features/add_meal/domain/meal_items_api.dart';
@@ -107,6 +109,12 @@ MealItemsApi mealItemsApiFor(
     // would be a request most of these servers quietly ignore. `required` is
     // what the app means with one tool defined, and where it is unsupported
     // the reply lands as the existing no-tool-call refusal.
+    AiProvider.deepseek => OpenAiCompatibleMealItemsApi.deepSeek(
+      client,
+      key,
+      model: modelId,
+      timeout: timeout ?? OpenAiCompatibleMealItemsApi.defaultTimeout,
+    ),
     AiProvider.ownServer => OpenAiCompatibleMealItemsApi(
       // The only provider whose address the user supplies, so the only one
       // where plaintext is possible at all — the other three are compiled-in
@@ -126,4 +134,21 @@ MealItemsApi mealItemsApiFor(
       timeoutFailure: MealInterpreterFailure.timeout,
     ),
   };
+}
+
+/// The label reader for [selection], or null when its provider cannot read
+/// labels. Only DeepSeek was measured on labels (docs/adr/0003), so only
+/// DeepSeek is offered; the label entry points are hidden for the others.
+NutritionLabelApi? nutritionLabelApiFor(
+  http.Client client,
+  AiSelection selection,
+) {
+  if (selection.provider != AiProvider.deepseek) return null;
+  final model = AiModelCatalogue.resolve(selection.provider, selection.modelId);
+  if (model == null) return null;
+  return DeepSeekNutritionLabelApi(
+    client,
+    () => selection.apiKey ?? '',
+    model: model.id,
+  );
 }

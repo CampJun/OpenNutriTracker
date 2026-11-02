@@ -10,6 +10,8 @@ import 'package:opennutritracker/core/utils/navigation_options.dart';
 import 'package:opennutritracker/core/utils/navigation_predicates.dart';
 import 'package:opennutritracker/features/add_meal/data/repository/products_repository.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
+import 'package:opennutritracker/features/add_meal/domain/usecase/read_nutrition_label_usecase.dart';
+import 'package:opennutritracker/features/add_meal/presentation/label_scan_flow.dart';
 import 'package:opennutritracker/features/add_meal/presentation/add_meal_type.dart';
 import 'package:opennutritracker/features/add_meal/presentation/bloc/add_meal_bloc.dart';
 import 'package:opennutritracker/features/add_meal/presentation/screens/bulk_add_screen.dart';
@@ -64,6 +66,10 @@ class _AddMealScreenState extends State<AddMealScreen> {
   /// Whether the Describe tile's panel is open under the tiles.
   bool _describeOpen = false;
 
+  /// Whether the Label tile is offered: a provider that reads labels is
+  /// configured and on. Asked once the screen opens.
+  bool _labelScanAvailable = false;
+
   /// What every entry method on this screen adds to, and the one button at
   /// the bottom logs. Handed to the screens this one opens.
   final _logTray = LogTray();
@@ -93,6 +99,13 @@ class _AddMealScreenState extends State<AddMealScreen> {
     // a fresh instance per lookup, whose state would always be initial.
     _addMealBloc = locator<AddMealBloc>()..add(InitializeAddMealEvent());
     super.initState();
+    // Guarded so the screen's upstream tests, which register only what it
+    // needed before label reading, keep running unchanged.
+    if (locator.isRegistered<ReadNutritionLabelUseCase>()) {
+      locator<ReadNutritionLabelUseCase>().isAvailable().then((available) {
+        if (mounted && available) setState(() => _labelScanAvailable = true);
+      });
+    }
   }
 
   @override
@@ -230,6 +243,9 @@ class _AddMealScreenState extends State<AddMealScreen> {
                           onDescribePressed: () =>
                               setState(() => _describeOpen = !_describeOpen),
                           describeOpen: _describeOpen,
+                          onLabelPressed: _labelScanAvailable
+                              ? _onLabelScanPressed
+                              : null,
                         ),
                         if (_describeOpen) ...[
                           const SizedBox(height: Dimens.spacing12),
@@ -844,6 +860,20 @@ class _AddMealScreenState extends State<AddMealScreen> {
   /// widgets given null leave the action out.
   VoidCallback? get _scanBarcodeAction =>
       FoodCatalogue.barcodeScannerEnabled ? _onBarcodeIconPressed : null;
+
+  void _onLabelScanPressed() {
+    final state = _addMealBloc.state;
+    startLabelScan(
+      context,
+      LabelScanTarget(
+        day: _day,
+        intakeType: _mealType.getIntakeType(),
+        usesImperialUnits:
+            state is AddMealLoadedState && state.usesImperialUnits,
+        logTray: _logTray,
+      ),
+    );
+  }
 
   void _onBarcodeIconPressed() {
     Navigator.of(context).pushNamed(
