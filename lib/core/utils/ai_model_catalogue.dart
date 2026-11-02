@@ -189,6 +189,14 @@ abstract final class AiModelCatalogue {
     ),
   ];
 
+  /// One model. `deepseek-flash` (DeepSeek-V4.1-Flash) reads images, and on
+  /// seven real nutrition labels it read 99% of fields with thinking off
+  /// (docs/adr/0003). Requests to it turn thinking off: DeepSeek refuses a
+  /// forced tool call while thinking is on.
+  static const deepseek = <AiModel>[
+    AiModel(id: 'deepseek-flash', servedBy: 'DeepSeek'),
+  ];
+
   /// Empty for [AiProvider.ownServer], and that is the answer rather than a
   /// gap. Membership of the lists above requires a behavioural screen the
   /// project cannot run against a machine it has never seen, and the user
@@ -198,6 +206,7 @@ abstract final class AiModelCatalogue {
     AiProvider.anthropic => anthropic,
     AiProvider.openrouter => openrouter,
     AiProvider.openai => openai,
+    AiProvider.deepseek => deepseek,
     AiProvider.ownServer => const [],
   };
 

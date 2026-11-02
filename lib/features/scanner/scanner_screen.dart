@@ -13,6 +13,8 @@ import 'package:opennutritracker/core/styles/dimens.dart';
 import 'package:opennutritracker/core/utils/locator.dart';
 import 'package:opennutritracker/core/utils/navigation_options.dart';
 import 'package:opennutritracker/core/utils/shared_payload_router.dart';
+import 'package:opennutritracker/features/add_meal/domain/usecase/read_nutrition_label_usecase.dart';
+import 'package:opennutritracker/features/add_meal/presentation/label_scan_flow.dart';
 import 'package:opennutritracker/features/add_meal/presentation/log_tray.dart';
 import 'package:opennutritracker/features/add_meal/presentation/add_meal_type.dart';
 import 'package:opennutritracker/features/home/presentation/screens/import_activity_scanner_screen.dart';
@@ -144,6 +146,11 @@ class _ScannerScreenState extends State<ScannerScreen>
               );
             });
           }
+        } else if (state is ScannerFailedState &&
+            state.type == ScannerFailedStateType.productNotFound &&
+            !_pickMode &&
+            _scannedBarcode != null) {
+          return _notInYourFoods(context, palette, state);
         } else if (state is ScannerFailedState) {
           return Scaffold(
             backgroundColor: palette.canvas,
@@ -350,6 +357,96 @@ class _ScannerScreenState extends State<ScannerScreen>
           );
       }
     });
+  }
+
+  /// Whether a miss can offer to read the label. Asked once.
+  late final Future<bool> _labelScanAvailable =
+      locator.isRegistered<ReadNutritionLabelUseCase>()
+      ? locator<ReadNutritionLabelUseCase>().isAvailable()
+      : Future.value(false);
+
+  /// A barcode none of the user's Custom Foods carries. The two ways on both
+  /// keep it, so the next scan of this product finds the food.
+  Widget _notInYourFoods(
+    BuildContext context,
+    AppPalette palette,
+    ScannerFailedState state,
+  ) {
+    final s = S.of(context);
+    final target = LabelScanTarget(
+      day: _day!,
+      intakeType: _intakeTypeEntity!,
+      usesImperialUnits: state.usesImperialUnits,
+      logTray: _logTray,
+      barcode: _scannedBarcode,
+    );
+    return Scaffold(
+      backgroundColor: palette.canvas,
+      appBar: AppBar(backgroundColor: palette.canvas),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(Dimens.spacing16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                s.scannerNotInYourFoodsLabel,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: Dimens.spacing8),
+              Text(
+                _scannedBarcode!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: Dimens.spacing16),
+              FutureBuilder<bool>(
+                future: _labelScanAvailable,
+                builder: (context, snapshot) => snapshot.data == true
+                    ? Padding(
+                        padding: const EdgeInsets.only(bottom: Dimens.spacing8),
+                        child: Semantics(
+                          identifier: 'scanner-not-found-label-scan',
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.document_scanner_rounded),
+                            label: Text(s.labelScanTakePhotoLabel),
+                            onPressed: () =>
+                                startLabelScan(context, target, replace: true),
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              Semantics(
+                identifier: 'scanner-not-found-create',
+                child: OutlinedButton(
+                  onPressed: () =>
+                      openNewCustomFood(context, target, replace: true),
+                  child: Text(s.noResultsCreateCustomFood),
+                ),
+              ),
+              const SizedBox(height: Dimens.spacing8),
+              Semantics(
+                identifier: 'scanner-not-found-rescan',
+                child: TextButton(
+                  onPressed: _onScanAgainPressed,
+                  child: Text(s.scanProductLabel),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Back to the camera for another barcode.
+  void _onScanAgainPressed() {
+    _scannedBarcode = null;
+    _navigatedAfterLoad = false;
+    _scannerBloc.add(ScannerResetEvent());
   }
 
   void _onRefreshButtonPressed() {

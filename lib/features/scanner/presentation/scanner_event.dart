@@ -16,3 +16,6 @@ class ScannerLoadProductEvent extends ScannerEvent {
   @override
   List<Object?> get props => [barcode];
 }
+
+/// Back to the camera after a miss, to scan another barcode.
+class ScannerResetEvent extends ScannerEvent {}

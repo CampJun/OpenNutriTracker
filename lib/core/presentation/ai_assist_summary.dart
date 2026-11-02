@@ -37,6 +37,7 @@ String? aiAssistSubtitle(
       AiProvider.anthropic => 'Anthropic',
       AiProvider.openrouter => 'OpenRouter',
       AiProvider.openai => 'OpenAI',
+      AiProvider.deepseek => 'DeepSeek',
       // No brand to print. #736: the row names where the data goes, and for a
       // server the user runs that is the machine they pointed it at — host
       // and port, not the stored URL. That string carries the chat route,
@@ -76,6 +77,7 @@ String aiDisclosureFor(
   AiProvider.anthropic => s.aiAssistDisclosureAnthropic,
   AiProvider.openrouter => s.aiAssistDisclosureOpenRouter,
   AiProvider.openai => s.aiAssistDisclosureOpenAI,
+  AiProvider.deepseek => s.aiAssistDisclosureDeepSeek,
   AiProvider.ownServer => _ownServerDisclosure(s, typedEndpoint),
 };
 
@@ -98,3 +100,13 @@ String _ownServerDisclosure(S s, String typedEndpoint) {
       ? s.aiAssistDisclosureOwnServerSecure(display)
       : s.aiAssistDisclosureOwnServerPlaintext(display);
 }
+
+/// The sentences that follow the provider paragraph.
+///
+/// DeepSeek is the one provider that reads nutrition labels, and a label's
+/// numbers are copied by the model (docs/adr/0003), so "nutrition values
+/// never come from the model" is false there and must not be shown.
+String aiDisclosureCommonFor(S s, AiProvider provider) =>
+    provider == AiProvider.deepseek
+    ? s.aiAssistDisclosureCommonLabelReading
+    : s.aiAssistDisclosureCommon;

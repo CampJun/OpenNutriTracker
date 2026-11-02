@@ -1335,10 +1335,12 @@
   "aiConsentChangeProviderNote": "You can change provider later. Each provider's terms are shown in Settings, and nothing you type or photograph is sent until you use the feature.",
   "aiConsentOwnServerCheckNote": "Saving your server's address also asks it which models it offers, and runs one setup check \u2014 a fixed example line and a sample photograph of ours, never anything of yours.",
   "aiConsentAgreeLabel": "I UNDERSTAND",
+  "aiAssistDisclosureCommonLabelReading": "Your diary and your profile are never sent. Nutrition values come from the food databases, except for nutrition labels you photograph: DeepSeek copies those numbers off the label, and you check them before anything is saved. The key is stored on this device only: OpenNutriTracker never sees it and does not pay for its use.",
   "aiAssistDisclosureCommon": "Your diary and your profile are never sent. Nutrition values always come from the food databases, never from the model. The key is stored on this device only: OpenNutriTracker never sees it and does not pay for its use.",
   "aiAssistDisclosureAnthropic": "With a key saved, the text you type on the multi-item add screen — and any photo you choose to read there — is sent to Anthropic. Photos are sent for that one request and never saved.",
   "aiAssistDisclosureOpenRouter": "With a key saved, the text you type on the multi-item add screen — and any photo you choose to read there — is sent to OpenRouter, which forwards it to the provider serving your chosen model. OpenRouter also forwards an account-level identity to that provider on every request, and this cannot be switched off. It does not keep your content beyond routing the request, except as required for abuse detection, security, billing or legal compliance. The vendor serving your model keeps what it receives under its own policy.",
   "aiAssistDisclosureOpenAI": "With a key saved, the text you type on the multi-item add screen — and any photo you choose to read there — is sent to OpenAI. OpenAI keeps what you send for up to 30 days to monitor for abuse, and longer if the law requires it or it is reasonably necessary to protect its services or a third party from harm.",
+  "aiAssistDisclosureDeepSeek": "With a key saved, the text you type on the multi-item add screen — and any meal or nutrition label photo you choose to read — is sent to DeepSeek. DeepSeek's privacy policy governs how long it keeps what you send.",
   "aiAssistProviderOwnServerLabel": "Your own server",
   "aiAssistEndpointFieldLabel": "Server address",
   "aiAssistModelFieldLabel": "Model name",
@@ -1404,6 +1406,7 @@
   "bulkAddPhotoDisclosureOpenRouter": "The photo is sent to OpenRouter, which forwards it to {provider} to identify the foods in it.",
   "@bulkAddPhotoDisclosureOpenRouter": {"placeholders": {"provider": {"type": "String"}}},
   "bulkAddPhotoDisclosureOpenAI": "The photo is sent to OpenAI to identify the foods in it. OpenAI keeps it for up to 30 days to monitor for abuse, and longer if the law requires it or it is reasonably necessary to protect its services or a third party from harm.",
+  "bulkAddPhotoDisclosureDeepSeek": "The photo is sent to DeepSeek to identify the foods in it. DeepSeek's privacy policy governs how long it keeps it.",
   "bulkAddPhotoDisclosureOwnServer": "The photo is sent to {host} to identify the foods in it.",
   "@bulkAddPhotoDisclosureOwnServer": {"placeholders": {"host": {"type": "String"}}},
   "bulkAddReadFromPhotoLabel": "Read from a photo — check every food and amount",
@@ -1458,6 +1461,41 @@
   "healthSyncUnavailableLabel": "Health data is not available on this device. Workout import needs Health Connect on Android or Apple Health on iOS.",
   "sourcesEnergyCompensationTitle": "Workout calorie credit",
   "sourcesEnergyCompensationDescription": "Imported workouts are credited with less than the energy your device reports. People compensate for exercise by burning fewer calories through the rest of the day — about 28% on average, and more at a higher body fat percentage. The suggested credit comes from that research and you can override it under Settings → Health sync. The energy itself is reported by the app or device that recorded the workout, not calculated with the app’s MET formula.",
+  "addMealLabelScanLabel": "Label",
+  "labelScanDisclosure": "The photo is sent to DeepSeek to read the nutrition facts. DeepSeek's privacy policy governs how long it keeps it. Nothing is saved until you review the values.",
+  "labelScanTakePhotoLabel": "Photograph the label",
+  "labelScanReadingLabel": "Reading the label…",
+  "labelScanNotFoundLabel": "No nutrition facts found in that photo. Try again with the whole panel in frame.",
+  "labelScanUnsupportedLabel": "That model can't read labels. Choose DeepSeek in Settings, or enter the values yourself.",
+  "labelScanNoCreditLabel": "That request couldn't be paid for: your DeepSeek account is out of credit. Top up with DeepSeek, or enter the values yourself.",
+  "labelScanEnterManuallyLabel": "Enter manually",
+  "labelReviewBanner": "Read from a label photo by DeepSeek. Check the values against the label before saving.",
+  "labelReviewBannerFlagged": "Read from a label photo by DeepSeek. Some values don't add up — check the highlighted fields against the label before saving.",
+  "labelAddedSugarsLabel": "added sugars",
+  "labelFlagDailyValue": "Label shows {percent}% DV, which is about {amount} {unit}",
+  "@labelFlagDailyValue": {
+    "placeholders": {
+      "percent": {"type": "String"},
+      "amount": {"type": "String"},
+      "unit": {"type": "String"}
+    }
+  },
+  "labelFlagEnergy": "Fat, carbs and protein add up to about {kcal} kcal",
+  "@labelFlagEnergy": {
+    "placeholders": {
+      "kcal": {"type": "String"}
+    }
+  },
+  "labelFlagPartExceedsTotal": "Label lists {amount} g {part}, more than the total",
+  "@labelFlagPartExceedsTotal": {
+    "placeholders": {
+      "part": {"type": "String"},
+      "amount": {"type": "String"}
+    }
+  },
+  "labelFlagMacrosExceedServing": "Fat, carbs and protein weigh more than this serving",
+  "labelFlagServingWeightMissing": "No serving weight found on the label. Enter it in grams.",
+  "scannerNotInYourFoodsLabel": "This barcode isn't on any of your Custom Foods yet.",
   "bodyFatLabel": "Body fat",
   "onboardingBodyFatQuestionSubtitle": "What's your body fat percentage?",
   "bodyFatExplanation": "Your calorie goal comes from your lean body mass, which is worked out from this. Use your latest reading from a smart scale, calipers or a DEXA scan.",

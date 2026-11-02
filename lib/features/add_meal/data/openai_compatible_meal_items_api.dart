@@ -142,7 +142,51 @@ class OpenAiCompatibleMealItemsApi implements MealItemsApi {
     this.failureFor = openRouterFailureFor,
     this.timeout = defaultTimeout,
     this.timeoutFailure = MealInterpreterFailure.transient,
+    this.extraBody = const {},
   });
+
+  /// Provider-specific top-level request fields, merged into every body.
+  final Map<String, Object> extraBody;
+
+  static final deepSeekEndpoint = Uri.parse(
+    'https://api.deepseek.com/chat/completions',
+  );
+
+  /// Turns `deepseek-flash`'s thinking off. Measured: with thinking on,
+  /// DeepSeek refuses every forced `tool_choice` with a 400 ("Thinking mode
+  /// does not support this tool_choice"); with it off the forced call works
+  /// and answers in about two seconds.
+  static const deepSeekThinkingOff = <String, Object>{
+    'thinking': {'type': 'disabled'},
+  };
+
+  /// DeepSeek's API, reached directly: no broker, forced by name.
+  factory OpenAiCompatibleMealItemsApi.deepSeek(
+    http.Client client,
+    String Function() apiKey, {
+    required String model,
+    Duration timeout = defaultTimeout,
+  }) => OpenAiCompatibleMealItemsApi(
+    client,
+    apiKey,
+    model: model,
+    endpoint: deepSeekEndpoint,
+    failureFor: deepSeekFailureFor,
+    timeout: timeout,
+    extraBody: deepSeekThinkingOff,
+  );
+
+  /// DeepSeek's documented status codes: 400 invalid format, 401 wrong key,
+  /// 402 insufficient balance, 422 invalid parameters, 429 rate limit,
+  /// 500 server error, 503 overloaded.
+  static MealInterpreterFailure deepSeekFailureFor(int statusCode) =>
+      switch (statusCode) {
+        401 || 403 => MealInterpreterFailure.auth,
+        400 || 422 => MealInterpreterFailure.rejected,
+        402 => MealInterpreterFailure.billing,
+        404 => MealInterpreterFailure.unsupported,
+        _ => MealInterpreterFailure.transient,
+      };
 
   /// The OpenRouter configuration, named so call sites read as intent rather
   /// than as five arguments.
@@ -167,6 +211,7 @@ class OpenAiCompatibleMealItemsApi implements MealItemsApi {
     required String system,
   }) async {
     final body = jsonEncode({
+      ...extraBody,
       'model': model,
       'max_tokens': _maxTokens,
       // No top-level `system` field here: the OpenAI-compatible shape wants

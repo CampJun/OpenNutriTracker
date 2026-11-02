@@ -16,6 +16,7 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
 
   ScannerBloc(this._searchProductUseCase, this._getConfigUsecase)
       : super(ScannerInitial()) {
+    on<ScannerResetEvent>((event, emit) => emit(ScannerInitial()));
     on<ScannerLoadProductEvent>((event, emit) async {
       emit(ScannerLoadingState());
 
@@ -32,8 +33,18 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
         );
       } catch (exception) {
         if (exception is ProductNotFoundException) {
+          var usesImperialUnits = false;
+          try {
+            usesImperialUnits =
+                (await _getConfigUsecase.getConfig()).usesImperialFoodUnits;
+          } catch (_) {
+            // The not-found screen still works in metric.
+          }
           emit(
-            const ScannerFailedState(ScannerFailedStateType.productNotFound),
+            ScannerFailedState(
+              ScannerFailedStateType.productNotFound,
+              usesImperialUnits: usesImperialUnits,
+            ),
           );
         } else {
           emit(const ScannerFailedState(ScannerFailedStateType.error));

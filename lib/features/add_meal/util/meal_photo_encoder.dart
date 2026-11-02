@@ -39,7 +39,9 @@ enum MealPhotoFormat {
   /// rather than inherit whichever answer a wildcard happened to give it.
   static MealPhotoFormat forProvider(AiProvider provider) => switch (provider) {
     AiProvider.anthropic || AiProvider.openrouter || AiProvider.openai => webp,
-    AiProvider.ownServer => jpeg,
+    // JPEG is what the label reader was measured on (docs/adr/0003); WebP
+    // support on DeepSeek's API is unverified.
+    AiProvider.deepseek || AiProvider.ownServer => jpeg,
   };
 }
 

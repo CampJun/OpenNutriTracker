@@ -3,7 +3,9 @@ import 'package:opennutritracker/core/data/data_source/remote_search_cache_data_
 import 'package:opennutritracker/core/data/data_source/custom_meal_data_source.dart';
 import 'package:opennutritracker/core/data/dbo/meal_dbo.dart';
 import 'package:opennutritracker/core/data/dbo/meal_nutriments_dbo.dart';
+import 'package:opennutritracker/features/add_meal/data/food_catalogue.dart';
 import 'package:opennutritracker/features/add_meal/data/repository/products_repository.dart';
+import 'package:opennutritracker/features/scanner/data/product_not_found_exception.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_entity.dart';
 import 'package:opennutritracker/features/add_meal/domain/entity/meal_nutriments_entity.dart';
 import 'package:opennutritracker/features/scanner/domain/usecase/search_product_by_barcode_usecase.dart';
@@ -33,8 +35,31 @@ void main() {
 
     tearDown(() => favourites.dispose());
 
-    test(
-        'returns the local custom meal without hitting OFF when the barcode '
+    group('with the network sources off (docs/adr/0002, 0003)', () {
+      setUp(FoodCatalogue.resetForTesting);
+      tearDown(() => FoodCatalogue.setForTesting(network: true, scanner: true));
+
+      test('finds the Custom Food that carries the barcode', () async {
+        customMealDataSource.meals.add(
+          _customMealDbo(code: '070200790148', name: 'Sauce'),
+        );
+        final result = await useCase.searchProductByBarcode('070200790148');
+        expect(result.name, 'Sauce');
+      });
+
+      test('a miss is not found, without the cache or the network', () async {
+        cachedOffMealDataSource.entries.add(
+          _offCacheDbo(code: '1234', name: 'Cached before the switch'),
+        );
+        await expectLater(
+          useCase.searchProductByBarcode('1234'),
+          throwsA(isA<ProductNotFoundException>()),
+        );
+        expect(repo.getOFFProductByBarcodeCalls, 0);
+      });
+    });
+
+    test('returns the local custom meal without hitting OFF when the barcode '
         'matches', () async {
       final localMatch = _customMealDbo(code: '1234567890123', name: 'Local');
       customMealDataSource.meals.add(localMatch);

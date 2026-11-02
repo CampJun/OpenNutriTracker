@@ -136,6 +136,16 @@ class EditMealBloc extends Bloc<EditMealEvent, EditMealState> {
     String? magnesiumText,
     String? vitaminDText,
     String? vitaminB12Text,
+    String? transFatText,
+    String? cholesterolText,
+    String? monounsaturatedFatText,
+    String? polyunsaturatedFatText,
+    String? vitaminAText,
+    String? vitaminCText,
+    String? vitaminB6Text,
+    String? niacinText,
+    String? zincText,
+    String? phosphorusText,
     String? barcodeOverride,
     String? localImagePathOverride,
     bool clearLocalImagePath = false,
@@ -146,8 +156,14 @@ class EditMealBloc extends Bloc<EditMealEvent, EditMealState> {
       return nutrimentValue != null ? nutrimentValue * factorTo100g : null;
     }
 
+    // A field the form did not show (null text) keeps the stored value,
+    // which is already per 100 and must not be scaled again. A field it did
+    // show is the user's: blanked means empty. It used to fall back to the
+    // stored value times the scale factor, so clearing a field typed per
+    // 31 g saved the old value multiplied by 100/31.
     double? fromTextOrOld(String? text, double? oldValue) =>
-        multiplyIfNotNull(text?.toDoubleOrNull() ?? oldValue);
+        text == null ? oldValue : multiplyIfNotNull(text.toDoubleOrNull());
+    final old = oldMealEntity.nutriments;
 
     final newMealNutriments = MealNutrimentsEntity(
       energyKcal100: multiplyIfNotNull(kcalText.toDoubleOrNull()),
@@ -164,6 +180,24 @@ class EditMealBloc extends Bloc<EditMealEvent, EditMealState> {
       magnesium100: fromTextOrOld(magnesiumText, oldMealEntity.nutriments.magnesium100),
       vitaminD100: fromTextOrOld(vitaminDText, oldMealEntity.nutriments.vitaminD100),
       vitaminB12100: fromTextOrOld(vitaminB12Text, oldMealEntity.nutriments.vitaminB12100),
+      // Ten more the advanced form shows since label reading
+      // (docs/adr/0003). They used to be dropped on every save.
+      transFat100: fromTextOrOld(transFatText, old.transFat100),
+      cholesterol100: fromTextOrOld(cholesterolText, old.cholesterol100),
+      monounsaturatedFat100: fromTextOrOld(
+        monounsaturatedFatText,
+        old.monounsaturatedFat100,
+      ),
+      polyunsaturatedFat100: fromTextOrOld(
+        polyunsaturatedFatText,
+        old.polyunsaturatedFat100,
+      ),
+      vitaminA100: fromTextOrOld(vitaminAText, old.vitaminA100),
+      vitaminC100: fromTextOrOld(vitaminCText, old.vitaminC100),
+      vitaminB6100: fromTextOrOld(vitaminB6Text, old.vitaminB6100),
+      niacin100: fromTextOrOld(niacinText, old.niacin100),
+      zinc100: fromTextOrOld(zincText, old.zinc100),
+      phosphorus100: fromTextOrOld(phosphorusText, old.phosphorus100),
     );
 
     return MealEntity(

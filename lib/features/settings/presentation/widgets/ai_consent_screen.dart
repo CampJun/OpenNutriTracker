@@ -80,7 +80,7 @@ class AiConsentScreen extends StatelessWidget {
             // What holds whichever provider is chosen — the diary, the
             // nutrition numbers, the key. Already written, already translated,
             // and the same sentences the settings dialog shows.
-            Text(s.aiAssistDisclosureCommon, style: body),
+            Text(aiDisclosureCommonFor(s, provider), style: body),
             const SizedBox(height: 20),
             // One agreement covers the feature, not one provider (#835), so
             // the screen has to say that plainly rather than let a user infer
