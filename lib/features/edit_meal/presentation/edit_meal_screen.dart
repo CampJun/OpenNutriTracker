@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:image_picker/image_picker.dart';
@@ -95,6 +96,10 @@ class _EditMealScreenState extends State<EditMealScreen> {
 
   /// Non-null while reviewing a label read.
   LabelReview? _labelReview;
+
+  /// The label checks run against what the fields hold now, so a value the
+  /// user corrects stops being flagged. Recomputed on every build.
+  List<LabelFlag> _labelFlags = const [];
 
   /// The field each label nutrient is reviewed in. Energy is absent: its
   /// field shows the user's energy unit and is filled separately.
@@ -303,6 +308,51 @@ class _EditMealScreenState extends State<EditMealScreen> {
     for (final entry in _labelFields.entries) {
       entry.value.text = _labelAmountText(label.amounts[entry.key]);
     }
+    for (final controller in [
+      _baseQuantityTextController,
+      _kcalTextController,
+      ..._labelFields.values,
+    ]) {
+      controller.addListener(_onLabelFieldChanged);
+    }
+  }
+
+  /// Rebuilds so the flags follow an edit. A change made during a build
+  /// (the energy field re-rendered in a new unit) is already being drawn.
+  void _onLabelFieldChanged() {
+    if (!mounted ||
+        SchedulerBinding.instance.schedulerPhase ==
+            SchedulerPhase.persistentCallbacks) {
+      return;
+    }
+    setState(() {});
+  }
+
+  /// [checkNutritionLabel] over the fields' current values, read as one
+  /// Label Serving of the base quantity's weight. Totals mode shows no
+  /// flags: its values are not per serving, so the checks do not apply.
+  List<LabelFlag> _checkLabelFields(LabelReview review) {
+    if (_isTotal) return const [];
+    double? parse(TextEditingController c) => double.tryParse(c.text.trim());
+    final energy = parse(_kcalTextController);
+    final kcal = (energy != null && (_lastRenderedUsesKj ?? false))
+        ? UnitCalc.kjToKcal(energy)
+        : energy;
+    final grams = parse(_baseQuantityTextController);
+    return checkNutritionLabel(
+      NutritionLabel(
+        servingGrams: (grams != null && grams > 0) ? grams : null,
+        amounts: {
+          for (final entry in _labelFields.entries)
+            entry.key: ?parse(entry.value),
+          LabelNutrient.energyKcal: ?kcal,
+          // No field: the label's own reading stands.
+          LabelNutrient.addedSugars:
+              ?review.label.amounts[LabelNutrient.addedSugars],
+        },
+        dailyValuePercents: review.label.dailyValuePercents,
+      ),
+    );
   }
 
   /// A label amount the way the label prints it: "14", not "14.0".
@@ -316,11 +366,10 @@ class _EditMealScreenState extends State<EditMealScreen> {
   /// Why [nutrient]'s field is highlighted, or null. Null [nutrient] asks
   /// about the serving weight.
   String? _labelFlagText(LabelNutrient? nutrient) {
-    final review = _labelReview;
-    if (review == null) return null;
+    if (_labelReview == null) return null;
     final s = S.of(context);
     final texts = [
-      for (final flag in review.flags)
+      for (final flag in _labelFlags)
         if (flag.nutrient == nutrient)
           switch (flag.kind) {
             LabelFlagKind.dailyValueMismatch => s.labelFlagDailyValue(
@@ -501,6 +550,8 @@ class _EditMealScreenState extends State<EditMealScreen> {
   }
 
   Widget _getLoadedContent(bool usesImperialUnits, bool usesKj) {
+    final review = _labelReview;
+    if (review != null) _labelFlags = _checkLabelFields(review);
     final isSimple = _formMode == CustomMealFormMode.simple;
     final energyUnitSuffix =
         usesKj ? S.of(context).kjLabel : S.of(context).kcalLabel;
@@ -508,9 +559,13 @@ class _EditMealScreenState extends State<EditMealScreen> {
     // selector (now the first Advanced field) so the labels and the per-100
     // helper all track the user's choice (#495).
     final unitSuffix = _massUnitSuffix(context);
+    // A label review seeds the base quantity in grams whatever the unit
+    // setting, and the save reads it as grams, so it is labelled grams.
+    final baseUnitSuffix =
+        _labelReview != null ? S.of(context).gramUnit : unitSuffix;
     final String advancedHelper = _isTotal
         ? S.of(context).mealNutrientsTotalLabel
-        : S.of(context).mealNutrientsPerQtyLabel(_getDisplayQuantity(), unitSuffix);
+        : S.of(context).mealNutrientsPerQtyLabel(_getDisplayQuantity(), baseUnitSuffix);
     final String energyHelper = isSimple
         ? S.of(context).customMealFormSimpleFieldHelper(energyUnitSuffix)
         : advancedHelper;
@@ -523,7 +578,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         if (_labelReview != null) ...[
-          _LabelReviewBanner(flagged: _labelReview!.flags.isNotEmpty),
+          _LabelReviewBanner(flagged: _labelFlags.isNotEmpty),
           const SizedBox(height: 16),
         ],
         // Custom meals get the same picker tile recipes use — a single
@@ -679,7 +734,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
             controller: _baseQuantityTextController,
             inputFormatters: CustomTextInputFormatter.doubleOnly(),
             decoration: InputDecoration(
-                labelText: '${S.of(context).baseQuantityLabel} ($unitSuffix)',
+                labelText: '${S.of(context).baseQuantityLabel} ($baseUnitSuffix)',
                 errorText: _labelFlagText(null),
                 errorMaxLines: 3,
                 border: const OutlineInputBorder(borderRadius: Dimens.borderRadiusM)),
@@ -693,7 +748,7 @@ class _EditMealScreenState extends State<EditMealScreen> {
                 ButtonSegment(
                   value: false,
                   label: Text(S.of(context).mealNutrientsPerQtyLabel(
-                      _getDisplayQuantity(), unitSuffix)),
+                      _getDisplayQuantity(), baseUnitSuffix)),
                 ),
                 ButtonSegment(
                   value: true,
@@ -974,6 +1029,15 @@ class _EditMealScreenState extends State<EditMealScreen> {
           clearLocalImagePath: _localImageCleared && _localImagePath == null,
         );
       } else {
+        // A label review's fields hold one Label Serving. Without its
+        // weight the save would read them as per 100 g.
+        final reviewGrams = double.tryParse(_baseQuantityTextController.text);
+        if (_labelReview != null &&
+            (reviewGrams == null || !reviewGrams.isFinite || reviewGrams <= 0)) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(S.of(context).labelFlagServingWeightMissing)));
+          return;
+        }
         // Advanced mode: validate nutritional consistency (#213).
         final baseQty =
             double.tryParse(_baseQuantityTextController.text) ?? 100.0;

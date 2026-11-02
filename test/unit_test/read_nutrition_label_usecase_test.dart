@@ -26,6 +26,20 @@ class _MemoryStorage implements FlutterSecureStorage {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Secure storage that fails every read, as a corrupted keystore does.
+class _BrokenStorage extends _MemoryStorage {
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async => throw StateError('keystore');
+}
+
 class _FakeApi implements NutritionLabelApi {
   final NutritionLabel? label;
   final Object? throws;
@@ -116,6 +130,16 @@ void main() {
       expect((result as NutritionLabelFailed).failure, expected);
     });
   }
+
+  test('a failing credential read is a result, not a throw', () async {
+    // The flow holds an undismissable dialog open until read() returns.
+    final useCase = ReadNutritionLabelUseCase(
+      AiCredentialStorage(_BrokenStorage()),
+      (_) => _FakeApi(),
+    );
+    final result = await useCase.read(_photo);
+    expect(result, isA<NutritionLabelFailed>());
+  });
 
   test('an unexpected error is transient', () async {
     final result = await _subject(

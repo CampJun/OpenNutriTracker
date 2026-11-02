@@ -424,7 +424,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                 child: OutlinedButton(
                   onPressed: () =>
                       openNewCustomFood(context, target, replace: true),
-                  child: Text(s.scannerCreateCustomFoodLabel),
+                  child: Text(s.noResultsCreateCustomFood),
                 ),
               ),
               const SizedBox(height: Dimens.spacing8),

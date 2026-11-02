@@ -1496,7 +1496,6 @@
   "labelFlagMacrosExceedServing": "Fat, carbs and protein weigh more than this serving",
   "labelFlagServingWeightMissing": "No serving weight found on the label. Enter it in grams.",
   "scannerNotInYourFoodsLabel": "This barcode isn't on any of your Custom Foods yet.",
-  "scannerCreateCustomFoodLabel": "Create a Custom Food",
   "bodyFatLabel": "Body fat",
   "onboardingBodyFatQuestionSubtitle": "What's your body fat percentage?",
   "bodyFatExplanation": "Your calorie goal comes from your lean body mass, which is worked out from this. Use your latest reading from a smart scale, calipers or a DEXA scan.",

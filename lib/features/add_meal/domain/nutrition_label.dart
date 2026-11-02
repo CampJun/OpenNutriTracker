@@ -158,7 +158,7 @@ NutritionLabel nutritionLabelFromJson(Object? input) {
   double? number(Object? raw) {
     final value = switch (raw) {
       num n => n.toDouble(),
-      String s => double.tryParse(s.replaceAll(',', '.').trim()),
+      String s => double.tryParse(_normalizeDecimal(s.trim())),
       _ => null,
     };
     return (value != null && value.isFinite && value >= 0) ? value : null;
@@ -191,6 +191,14 @@ NutritionLabel nutritionLabelFromJson(Object? input) {
     },
   );
 }
+
+/// "1,250" is a thousands separator on a US label, not 1.25; "1,5" is a
+/// decimal comma. A leading zero ("0,250") is always a decimal.
+final _thousandsGrouped = RegExp(r'^[1-9]\d{0,2}(,\d{3})+(\.\d+)?$');
+
+String _normalizeDecimal(String s) => _thousandsGrouped.hasMatch(s)
+    ? s.replaceAll(',', '')
+    : s.replaceAll(',', '.');
 
 /// Why a value on the review screen deserves a second look.
 enum LabelFlagKind {
@@ -253,7 +261,10 @@ List<LabelFlag> checkNutritionLabel(NutritionLabel label) {
     final printed = entry.value;
     final amount = a[nutrient];
     final dv = nutrient.dailyValue;
-    if (amount == null || dv == null) continue;
+    // Added sugars has no field to show a mismatch on, and is never stored.
+    if (amount == null || dv == null || nutrient == LabelNutrient.addedSugars) {
+      continue;
+    }
     final implied = amount / dv * 100;
     // Two points or 15%, whichever is larger: wide enough for the FDA's
     // rounding of both the amount and the percentage, narrow enough that

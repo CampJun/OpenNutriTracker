@@ -66,7 +66,11 @@ void main() {
     dailyValuePercents: {LabelNutrient.iron: 10},
   );
 
-  Future<void> pumpReview(WidgetTester tester) async {
+  Future<void> pumpReview(
+    WidgetTester tester, {
+    NutritionLabel label = label,
+    bool usesImperialUnits = false,
+  }) async {
     tester.view.physicalSize = const Size(1080, 8000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -86,7 +90,7 @@ void main() {
                   DateTime(2026, 11, 2),
                   customFoodFromLabel(label, barcode: '070200790148'),
                   IntakeTypeEntity.lunch,
-                  false,
+                  usesImperialUnits,
                   editOnly: true,
                   labelReview: LabelReview(label, checkNutritionLabel(label)),
                 ),
@@ -150,6 +154,90 @@ void main() {
     expect(n.transFat100, 0);
     // Flagged, not corrected: the value saved is the one on screen.
     expect(n.iron100, closeTo(3.23, 0.01));
+  });
+
+  testWidgets('correcting a flagged value clears its flag', (tester) async {
+    await pumpReview(tester);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, l10nEn.ironLabel),
+      '1.8',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(l10nEn.labelFlagDailyValue('10', '1.8', 'mg')),
+      findsNothing,
+    );
+    expect(find.text(l10nEn.labelReviewBanner), findsOneWidget);
+  });
+
+  testWidgets('without a serving weight nothing saves until one is typed', (
+    tester,
+  ) async {
+    const noWeight = NutritionLabel(
+      servingSize: '2 Tbsp',
+      amounts: {
+        LabelNutrient.energyKcal: 160,
+        LabelNutrient.fat: 14,
+        LabelNutrient.carbohydrates: 7,
+        LabelNutrient.protein: 0,
+      },
+    );
+    await pumpReview(tester, label: noWeight);
+    final baseField = find.widgetWithText(
+      TextFormField,
+      '${l10nEn.baseQuantityLabel} (${l10nEn.gramUnit})',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, l10nEn.mealNameLabel),
+      'Sauce',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, l10nEn.buttonSaveLabel));
+    await tester.pump();
+
+    // Saved as typed it would be 160 kcal per 100 g.
+    expect(dataSource.saves, isEmpty);
+    expect(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.text(l10nEn.labelFlagServingWeightMissing),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.enterText(baseField, '31');
+    await tester.pumpAndSettle();
+    // The field's own flag goes once a weight is typed.
+    expect(
+      find.descendant(
+        of: baseField,
+        matching: find.text(l10nEn.labelFlagServingWeightMissing),
+      ),
+      findsNothing,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, l10nEn.buttonSaveLabel));
+    await tester.pumpAndSettle();
+    expect(
+      dataSource.saves.single.$1.nutriments.energyKcal100,
+      closeTo(516.13, 0.01),
+    );
+  });
+
+  testWidgets('an imperial user sees the base quantity in grams', (
+    tester,
+  ) async {
+    await pumpReview(tester, usesImperialUnits: true);
+    expect(
+      fieldText(tester, '${l10nEn.baseQuantityLabel} (${l10nEn.gramUnit})'),
+      '31',
+    );
+    expect(
+      find.widgetWithText(
+        TextFormField,
+        '${l10nEn.baseQuantityLabel} (${l10nEn.ozUnit})',
+      ),
+      findsNothing,
+    );
   });
 }
 

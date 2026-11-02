@@ -69,6 +69,19 @@ void main() {
       expect(label.amounts, {LabelNutrient.iron: 1.8});
     });
 
+    test('a thousands separator is not read as a decimal point', () {
+      final label = nutritionLabelFromJson({
+        'potassiumMg': '1,250',
+        'energyKcal': '1,020.5',
+        'fat': '1,5',
+        'sodiumMg': '0,250',
+      });
+      expect(label.amounts[LabelNutrient.potassium], 1250);
+      expect(label.amounts[LabelNutrient.energyKcal], 1020.5);
+      expect(label.amounts[LabelNutrient.fat], 1.5);
+      expect(label.amounts[LabelNutrient.sodium], 0.25);
+    });
+
     test('an answer with nothing in it is empty, not a failure', () {
       expect(nutritionLabelFromJson(const {}).isEmpty, isTrue);
     });
@@ -115,6 +128,18 @@ void main() {
       expect(flags.single.nutrient, LabelNutrient.iron);
       expect(flags.single.kind, LabelFlagKind.dailyValueMismatch);
       expect(flags.single.impliedAmount, closeTo(1.8, 1e-9));
+    });
+
+    test('added sugars is not checked against its %DV', () {
+      // It has no field to show a mismatch on and is never stored.
+      final flags = checkNutritionLabel(
+        const NutritionLabel(
+          servingGrams: 31,
+          amounts: {LabelNutrient.addedSugars: 1},
+          dailyValuePercents: {LabelNutrient.addedSugars: 50},
+        ),
+      );
+      expect(flags, isEmpty);
     });
 
     test('a label that is wrong itself is flagged, not corrected', () {

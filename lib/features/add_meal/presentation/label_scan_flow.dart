@@ -128,8 +128,12 @@ Future<void> startLabelScan(
       ),
     ),
   );
-  final result = await locator<ReadNutritionLabelUseCase>().read(photo);
-  navigator.pop(); // the reading dialog
+  final NutritionLabelReadResult result;
+  try {
+    result = await locator<ReadNutritionLabelUseCase>().read(photo);
+  } finally {
+    navigator.pop(); // the reading dialog, which cannot be dismissed
+  }
   if (!context.mounted) return;
 
   switch (result) {

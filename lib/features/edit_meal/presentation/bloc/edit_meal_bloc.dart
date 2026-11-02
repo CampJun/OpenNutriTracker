@@ -176,22 +176,10 @@ class EditMealBloc extends Bloc<EditMealEvent, EditMealState> {
       sodium100: fromTextOrOld(sodiumText, oldMealEntity.nutriments.sodium100),
       calcium100: fromTextOrOld(calciumText, oldMealEntity.nutriments.calcium100),
       iron100: fromTextOrOld(ironText, oldMealEntity.nutriments.iron100),
-      potassium100: fromTextOrOld(
-        potassiumText,
-        oldMealEntity.nutriments.potassium100,
-      ),
-      magnesium100: fromTextOrOld(
-        magnesiumText,
-        oldMealEntity.nutriments.magnesium100,
-      ),
-      vitaminD100: fromTextOrOld(
-        vitaminDText,
-        oldMealEntity.nutriments.vitaminD100,
-      ),
-      vitaminB12100: fromTextOrOld(
-        vitaminB12Text,
-        oldMealEntity.nutriments.vitaminB12100,
-      ),
+      potassium100: fromTextOrOld(potassiumText, oldMealEntity.nutriments.potassium100),
+      magnesium100: fromTextOrOld(magnesiumText, oldMealEntity.nutriments.magnesium100),
+      vitaminD100: fromTextOrOld(vitaminDText, oldMealEntity.nutriments.vitaminD100),
+      vitaminB12100: fromTextOrOld(vitaminB12Text, oldMealEntity.nutriments.vitaminB12100),
       // Ten more the advanced form shows since label reading
       // (docs/adr/0003). They used to be dropped on every save.
       transFat100: fromTextOrOld(transFatText, old.transFat100),

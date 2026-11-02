@@ -60,12 +60,14 @@ class ReadNutritionLabelUseCase {
     return selection != null && _apiFactory(selection) != null;
   }
 
+  /// Never throws: the caller holds an undismissable dialog open until this
+  /// returns, so even a failing credential read must come back as a result.
   Future<NutritionLabelReadResult> read(MealPhoto photo) async {
-    final selection = await _credentials.readSelection();
-    final api = selection == null ? null : _apiFactory(selection);
-    if (api == null) return const NutritionLabelUnavailable();
-
     try {
+      final selection = await _credentials.readSelection();
+      final api = selection == null ? null : _apiFactory(selection);
+      if (api == null) return const NutritionLabelUnavailable();
+
       final label = await api.read(
         mediaType: photo.mediaType,
         base64Data: base64Encode(photo.bytes),
