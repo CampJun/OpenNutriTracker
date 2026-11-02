@@ -255,6 +255,8 @@ void main() {
         gender: UserGenderDBO.male,
         goal: UserWeightGoalDBO.maintainWeight,
         pal: UserPALDBO.active,
+        bodyFatPercent: 20,
+        bodyFatReadingWeightKg: 62,
       ),
     );
     kcalGoal = GetKcalGoalUsecase(

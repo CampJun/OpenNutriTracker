@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:opennutritracker/core/domain/entity/body_fat_reading_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_entity.dart';
 import 'package:opennutritracker/core/domain/entity/user_weight_goal_entity.dart';
 import 'package:opennutritracker/core/utils/calc/calorie_goal_calc.dart';
@@ -27,9 +28,10 @@ void main() {
           200.0,
         );
 
-        // TDEE: 2662, Activities: 200, Adjustment: + 0
-        // 2662 + 200 + 0 = 2862
-        int expectedKcal = 2862;
+        // Lean mass: 80 * (1 - 0.18) = 65.6
+        // TDEE: (370 + 21.6 * 65.6) * 1.2 = 2144.35
+        // 2144.35 + 200 activities + 0 adjustment = 2344
+        int expectedKcal = 2344;
 
         expect(resultCalorieGoal.toInt(), expectedKcal);
       },
@@ -45,9 +47,10 @@ void main() {
           550.0,
         );
 
-        // TDEE: 2373, Activities: 550, Adjustment: -500
-        // 2373 + 550 - 500 = 2423
-        int expectedKcal = 2423;
+        // Lean mass: 75 * (1 - 0.35) = 48.75
+        // TDEE: (370 + 21.6 * 48.75) * 1.2 = 1707.6
+        // 1707.6 + 550 activities - 500 adjustment = 1757
+        int expectedKcal = 1757;
 
         expect(resultCalorieGoal.toInt(), expectedKcal);
       },
@@ -80,26 +83,31 @@ void main() {
     });
 
     test(
-        'weekly weight goal in kg overrides the lose/gain default adjustment',
-        () {
-      // -0.5 kg/week → -550 kcal/day (vs -500 default for loseWeight)
-      final base = UserEntityFixtures.middleAgedActiveFemaleWantingToLoseWeight;
-      final user = UserEntity(
-        birthday: base.birthday,
-        heightCM: base.heightCM,
-        weightKG: base.weightKG,
-        gender: base.gender,
-        goal: base.goal,
-        pal: base.pal,
-        weeklyWeightGoalKg: -0.5,
-      );
+      'weekly weight goal in kg overrides the lose/gain default adjustment',
+      () {
+        // -0.5 kg/week → -550 kcal/day (vs -500 default for loseWeight)
+        final base =
+            UserEntityFixtures.middleAgedActiveFemaleWantingToLoseWeight;
+        final user = UserEntity(
+          birthday: base.birthday,
+          heightCM: base.heightCM,
+          weightKG: base.weightKG,
+          gender: base.gender,
+          goal: base.goal,
+          bodyFatReading: BodyFatReadingEntity(
+            bodyFatPercent: 20,
+            weightKg: base.weightKG,
+          ),
+          weeklyWeightGoalKg: -0.5,
+        );
 
-      final adjustment = CalorieGoalCalc.getKcalGoalAdjustment(
-        user.goal,
-        weeklyWeightGoalKg: user.weeklyWeightGoalKg,
-      );
-      expect(adjustment, equals(-550));
-    });
+        final adjustment = CalorieGoalCalc.getKcalGoalAdjustment(
+          user.goal,
+          weeklyWeightGoalKg: user.weeklyWeightGoalKg,
+        );
+        expect(adjustment, equals(-550));
+      },
+    );
 
     test('positive weekly weight goal yields a positive adjustment', () {
       final adjustment = CalorieGoalCalc.getKcalGoalAdjustment(
@@ -116,7 +124,8 @@ void main() {
       );
       expect(
         CalorieGoalCalc.getKcalGoalAdjustment(
-            UserWeightGoalEntity.maintainWeight),
+          UserWeightGoalEntity.maintainWeight,
+        ),
         equals(0),
       );
       expect(

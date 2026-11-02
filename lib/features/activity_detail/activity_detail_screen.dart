@@ -205,6 +205,14 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                       ],
                     ),
                   ),
+                  if (activityEntity.isCountedBySteps) ...[
+                    const SizedBox(height: Dimens.spacing16),
+                    Text(
+                      S.of(context).dailyStepsAlreadyCountedHint,
+                      textAlign: TextAlign.center,
+                      style: text.bodySmall?.copyWith(color: palette.textMuted),
+                    ),
+                  ],
                   const SizedBox(height: Dimens.spacing32),
                   // The Compendium attribution only makes sense for the
                   // built-in activities it actually sourced. Custom activities
@@ -227,8 +235,10 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
   /// later just re-renders the same underlying energy.
   double _convertTypedToKcal(double typed) {
     if (!activityEntity.isCustom) return typed;
-    final usesKj =
-        Provider.of<EnergyUnitProvider>(context, listen: false).usesKilojoules;
+    final usesKj = Provider.of<EnergyUnitProvider>(
+      context,
+      listen: false,
+    ).usesKilojoules;
     return usesKj ? UnitCalc.kjToKcal(typed) : typed;
   }
 

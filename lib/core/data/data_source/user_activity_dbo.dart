@@ -43,6 +43,11 @@ class UserActivityDBO extends HiveObject {
   @HiveField(7)
   final double? sourceReportedKcal;
 
+  /// The step count of a Daily Steps row, null for every other activity.
+  /// [burnedKcal] carries the net walking kcal computed from it.
+  @HiveField(8)
+  final int? steps;
+
   UserActivityDBO(
     this.id,
     this.duration,
@@ -52,6 +57,7 @@ class UserActivityDBO extends HiveObject {
     this.userKcal,
     this.externalId,
     this.sourceReportedKcal,
+    this.steps,
   });
 
   factory UserActivityDBO.fromUserActivityEntity(
@@ -68,6 +74,7 @@ class UserActivityDBO extends HiveObject {
       userKcal: userActivityEntity.userKcal,
       externalId: userActivityEntity.externalId,
       sourceReportedKcal: userActivityEntity.sourceReportedKcal,
+      steps: userActivityEntity.steps,
     );
   }
 
